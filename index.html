@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>天気チェック</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7f6;
+      --surface: #ffffff;
+      --surface-2: #eef3f1;
+      --text: #17211f;
+      --muted: #60716b;
+      --line: #d8e1de;
+      --accent: #096b72;
+      --accent-2: #c04429;
+      --shadow: 0 12px 28px rgba(18, 34, 32, 0.12);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(244, 247, 246, 0.96)),
+        var(--bg);
+      font-family: "Segoe UI", "Yu Gothic UI", "Yu Gothic", Meiryo, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 58px;
+      padding: 10px clamp(12px, 2.2vw, 24px);
+      background: rgba(255, 255, 255, 0.9);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(18px, 2.1vw, 24px);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .clock {
+      color: var(--muted);
+      font-size: 14px;
+      min-width: 10.5em;
+    }
+
+    .location-status {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .button,
+    .select {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    }
+
+    .button:hover,
+    .select:hover {
+      border-color: #b8c8c4;
+      background: #fbfdfc;
+    }
+
+    .button:disabled {
+      cursor: wait;
+      opacity: 0.72;
+    }
+
+    .button.primary {
+      color: #ffffff;
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .button.location-active {
+      border-color: #77aaa4;
+      background: #e6f4f1;
+    }
+
+    .quick-links {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      padding: 10px clamp(12px, 2.2vw, 24px) 0;
+    }
+
+    .quick-link {
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      text-decoration: none;
+      box-shadow: 0 6px 16px rgba(18, 34, 32, 0.08);
+    }
+
+    .quick-link strong {
+      font-size: 15px;
+    }
+
+    .quick-link span {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .select {
+      appearance: none;
+      padding-right: 28px;
+      background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position:
+        calc(100% - 16px) 15px,
+        calc(100% - 11px) 15px;
+      background-size: 5px 5px;
+      background-repeat: no-repeat;
+    }
+
+    .board {
+      height: 100%;
+      padding: clamp(10px, 1.6vw, 18px);
+      display: grid;
+      gap: clamp(10px, 1.4vw, 16px);
+      min-height: 0;
+    }
+
+    .board.split {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .board.stack {
+      grid-template-rows: minmax(420px, 1fr) minmax(420px, 1fr);
+    }
+
+    .board.focus-weathernews .panel.yahoo,
+    .board.focus-yahoo .panel.weathernews {
+      display: none;
+    }
+
+    .panel {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 46px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-width: 0;
+      font-weight: 700;
+    }
+
+    .mark {
+      width: 12px;
+      height: 12px;
+      flex: 0 0 12px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .yahoo .mark {
+      background: var(--accent-2);
+    }
+
+    .panel-url {
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      min-width: 0;
+    }
+
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+      flex: 0 0 auto;
+    }
+
+    .icon-button {
+      width: 34px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      cursor: pointer;
+      color: var(--text);
+      display: inline-grid;
+      place-items: center;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .icon-button:hover {
+      border-color: #b8c8c4;
+      background: #fbfdfc;
+    }
+
+    .frame-wrap {
+      position: relative;
+      min-height: 0;
+      background: #ffffff;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 420px;
+      border: 0;
+      background: #ffffff;
+    }
+
+    .blocked-note {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      max-width: min(360px, calc(100% - 24px));
+      padding: 9px 11px;
+      border: 1px solid rgba(216, 225, 222, 0.95);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--muted);
+      font-size: 12px;
+      box-shadow: 0 8px 20px rgba(18, 34, 32, 0.12);
+      pointer-events: none;
+    }
+
+    .open-fallback {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: #ffffff;
+    }
+
+    .open-fallback-inner {
+      width: min(340px, 100%);
+      display: grid;
+      gap: 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .open-fallback .button {
+      min-height: 44px;
+    }
+
+    dialog {
+      width: min(780px, calc(100vw - 24px));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 0;
+    }
+
+    dialog::backdrop {
+      background: rgba(18, 34, 32, 0.34);
+    }
+
+    .settings {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+    }
+
+    .settings h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    input[type="url"] {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 0 12px;
+      color: var(--text);
+      background: #ffffff;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    @media (max-width: 860px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .toolbar {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .board.split {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(380px, 1fr) minmax(380px, 1fr);
+      }
+
+      iframe {
+        min-height: 380px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      body {
+        background: var(--bg);
+      }
+
+      .topbar {
+        gap: 8px;
+        padding: 10px 10px;
+      }
+
+      .clock {
+        min-width: 0;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .button,
+      .select {
+        width: 100%;
+        min-height: 42px;
+        padding: 0 10px;
+      }
+
+      .quick-links {
+        grid-template-columns: 1fr;
+        padding: 10px;
+      }
+
+      .quick-link {
+        min-height: 54px;
+      }
+
+      .board {
+        padding: 10px;
+        gap: 10px;
+      }
+
+      .board.split,
+      .board.stack {
+        grid-template-rows: minmax(420px, 62vh) auto;
+      }
+
+      .panel-head {
+        align-items: flex-start;
+      }
+
+      .panel-title {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+      }
+
+      .mark {
+        display: none;
+      }
+
+      .panel.yahoo .frame-wrap {
+        min-height: 148px;
+      }
+
+      .panel.yahoo iframe,
+      .panel.yahoo .blocked-note {
+        display: none;
+      }
+
+      .panel.yahoo .open-fallback {
+        display: grid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>天気チェック</h1>
+        <div class="clock" id="clock">--:--</div>
+        <div class="location-status" id="locationStatus">現在地: 未使用</div>
+      </div>
+      <div class="toolbar" aria-label="操作">
+        <select class="select" id="layoutSelect" title="表示切替">
+          <option value="split">左右</option>
+          <option value="stack">上下</option>
+          <option value="focus-weathernews">Weathernews</option>
+          <option value="focus-yahoo">Yahoo天気</option>
+        </select>
+        <button class="button" id="useLocation" type="button">⌖ 現在地</button>
+        <button class="button" id="reloadAll" type="button">↻ 更新</button>
+        <button class="button" id="openAll" type="button">↗ 両方開く</button>
+        <button class="button primary" id="settingsButton" type="button">⚙ 設定</button>
+      </div>
+    </header>
+
+    <section class="quick-links" aria-label="天気サイトを開く">
+      <a class="quick-link" id="weathernewsQuickOpen" target="_blank" rel="noreferrer">
+        <strong>Weathernews</strong>
+        <span>↗ 開く</span>
+      </a>
+      <a class="quick-link" id="yahooQuickOpen" target="_blank" rel="noreferrer">
+        <strong>Yahoo天気</strong>
+        <span>↗ 開く</span>
+      </a>
+    </section>
+
+    <section class="board split" id="board" aria-label="天気サイト">
+      <article class="panel weathernews">
+        <header class="panel-head">
+          <div class="panel-title">
+            <span class="mark" aria-hidden="true"></span>
+            <span>Weathernews</span>
+            <span class="panel-url" id="weathernewsUrlText"></span>
+          </div>
+          <div class="panel-actions">
+            <button class="icon-button" type="button" data-reload="weathernewsFrame" title="再読み込み">↻</button>
+            <a class="icon-button" id="weathernewsOpen" title="外部で開く" target="_blank" rel="noreferrer">↗</a>
+          </div>
+        </header>
+        <div class="frame-wrap">
+          <iframe id="weathernewsFrame" title="Weathernews" allow="geolocation"></iframe>
+          <div class="blocked-note">表示されない場合は ↗ で開けます</div>
+        </div>
+      </article>
+
+      <article class="panel yahoo">
+        <header class="panel-head">
+          <div class="panel-title">
+            <span class="mark" aria-hidden="true"></span>
+            <span>Yahoo天気</span>
+            <span class="panel-url" id="yahooUrlText"></span>
+          </div>
+          <div class="panel-actions">
+            <button class="icon-button" type="button" data-reload="yahooFrame" title="再読み込み">↻</button>
+            <a class="icon-button" id="yahooOpen" title="外部で開く" target="_blank" rel="noreferrer">↗</a>
+          </div>
+        </header>
+        <div class="frame-wrap">
+          <iframe id="yahooFrame" title="Yahoo天気" allow="geolocation"></iframe>
+          <div class="blocked-note">表示されない場合は ↗ で開けます</div>
+          <div class="open-fallback">
+            <div class="open-fallback-inner">
+              <strong>Yahoo天気</strong>
+              <a class="button primary" id="yahooFallbackOpen" target="_blank" rel="noreferrer">↗ 外部で開く</a>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="settings" id="settingsForm">
+      <h2>設定</h2>
+      <div class="field">
+        <label for="weathernewsUrl">Weathernews URL</label>
+        <input id="weathernewsUrl" type="url" inputmode="url" autocomplete="url" required>
+      </div>
+      <div class="field">
+        <label for="yahooUrl">Yahoo天気 URL</label>
+        <input id="yahooUrl" type="url" inputmode="url" autocomplete="url" required>
+      </div>
+      <div class="settings-actions">
+        <button class="button" id="resetDefaults" type="button">初期値</button>
+        <button class="button" value="cancel" type="submit">閉じる</button>
+        <button class="button primary" id="saveSettings" value="default" type="submit">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const defaults = {
+      weathernewsUrl: "https://weathernews.jp/",
+      yahooUrl: "https://weather.yahoo.co.jp/weather/",
+      weathernewsCurrentUrl: "https://weathernews.jp/",
+      yahooCurrentUrl: "https://weather.yahoo.co.jp/weather/personal/",
+      layout: "split",
+      useCurrentLocation: false
+    };
+
+    const storageKey = "weather-dashboard-settings-v1";
+    const state = loadSettings();
+
+    const board = document.getElementById("board");
+    const layoutSelect = document.getElementById("layoutSelect");
+    const settingsDialog = document.getElementById("settingsDialog");
+    const useLocationButton = document.getElementById("useLocation");
+    const locationStatus = document.getElementById("locationStatus");
+    const weathernewsFrame = document.getElementById("weathernewsFrame");
+    const yahooFrame = document.getElementById("yahooFrame");
+    const weathernewsOpen = document.getElementById("weathernewsOpen");
+    const yahooOpen = document.getElementById("yahooOpen");
+    const weathernewsQuickOpen = document.getElementById("weathernewsQuickOpen");
+    const yahooQuickOpen = document.getElementById("yahooQuickOpen");
+    const yahooFallbackOpen = document.getElementById("yahooFallbackOpen");
+    const weathernewsUrlText = document.getElementById("weathernewsUrlText");
+    const yahooUrlText = document.getElementById("yahooUrlText");
+    const weathernewsUrlInput = document.getElementById("weathernewsUrl");
+    const yahooUrlInput = document.getElementById("yahooUrl");
+
+    function loadSettings() {
+      try {
+        return { ...defaults, ...JSON.parse(localStorage.getItem(storageKey) || "{}") };
+      } catch {
+        return { ...defaults };
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+    }
+
+    function setFrame(frame, url) {
+      frame.removeAttribute("src");
+      requestAnimationFrame(() => {
+        frame.src = url;
+      });
+    }
+
+    function activeUrls() {
+      if (!state.useCurrentLocation) {
+        return {
+          weathernews: state.weathernewsUrl,
+          yahoo: state.yahooUrl
+        };
+      }
+
+      return {
+        weathernews: defaults.weathernewsCurrentUrl,
+        yahoo: defaults.yahooCurrentUrl
+      };
+    }
+
+    function shortUrl(url) {
+      try {
+        const parsed = new URL(url);
+        return parsed.hostname + parsed.pathname.replace(/\/$/, "");
+      } catch {
+        return url;
+      }
+    }
+
+    function render() {
+      const urls = activeUrls();
+      weathernewsOpen.href = urls.weathernews;
+      yahooOpen.href = urls.yahoo;
+      weathernewsQuickOpen.href = urls.weathernews;
+      yahooQuickOpen.href = urls.yahoo;
+      yahooFallbackOpen.href = urls.yahoo;
+      weathernewsUrlText.textContent = shortUrl(urls.weathernews);
+      yahooUrlText.textContent = shortUrl(urls.yahoo);
+      weathernewsUrlInput.value = state.weathernewsUrl;
+      yahooUrlInput.value = state.yahooUrl;
+      layoutSelect.value = state.layout;
+      useLocationButton.classList.toggle("location-active", state.useCurrentLocation);
+      locationStatus.textContent = state.useCurrentLocation ? "現在地: 使用中" : "現在地: 未使用";
+      board.className = `board ${state.layout}`;
+      setFrame(weathernewsFrame, urls.weathernews);
+      setFrame(yahooFrame, urls.yahoo);
+    }
+
+    function requestCurrentLocation() {
+      if (!navigator.geolocation) {
+        locationStatus.textContent = "現在地: 非対応";
+        return;
+      }
+
+      useLocationButton.disabled = true;
+      locationStatus.textContent = "現在地: 確認中";
+
+      navigator.geolocation.getCurrentPosition(
+        () => {
+          state.useCurrentLocation = true;
+          saveSettings();
+          useLocationButton.disabled = false;
+          render();
+        },
+        () => {
+          state.useCurrentLocation = false;
+          saveSettings();
+          useLocationButton.disabled = false;
+          locationStatus.textContent = "現在地: 未許可";
+          useLocationButton.classList.remove("location-active");
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 600000
+        }
+      );
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent = new Intl.DateTimeFormat("ja-JP", {
+        month: "2-digit",
+        day: "2-digit",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(now);
+    }
+
+    layoutSelect.addEventListener("change", () => {
+      state.layout = layoutSelect.value;
+      saveSettings();
+      board.className = `board ${state.layout}`;
+    });
+
+    useLocationButton.addEventListener("click", () => {
+      if (state.useCurrentLocation) {
+        state.useCurrentLocation = false;
+        saveSettings();
+        render();
+        return;
+      }
+
+      requestCurrentLocation();
+    });
+
+    document.getElementById("settingsButton").addEventListener("click", () => {
+      weathernewsUrlInput.value = state.weathernewsUrl;
+      yahooUrlInput.value = state.yahooUrl;
+      settingsDialog.showModal();
+      weathernewsUrlInput.focus();
+    });
+
+    document.getElementById("settingsForm").addEventListener("submit", (event) => {
+      if (event.submitter && event.submitter.id !== "saveSettings") return;
+      state.weathernewsUrl = weathernewsUrlInput.value.trim();
+      state.yahooUrl = yahooUrlInput.value.trim();
+      state.useCurrentLocation = false;
+      saveSettings();
+      render();
+    });
+
+    document.getElementById("resetDefaults").addEventListener("click", () => {
+      weathernewsUrlInput.value = defaults.weathernewsUrl;
+      yahooUrlInput.value = defaults.yahooUrl;
+    });
+
+    document.querySelectorAll("[data-reload]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const frame = document.getElementById(button.dataset.reload);
+        setFrame(frame, frame.src);
+      });
+    });
+
+    document.getElementById("reloadAll").addEventListener("click", () => {
+      const urls = activeUrls();
+      setFrame(weathernewsFrame, urls.weathernews);
+      setFrame(yahooFrame, urls.yahoo);
+    });
+
+    document.getElementById("openAll").addEventListener("click", () => {
+      const urls = activeUrls();
+      window.open(urls.weathernews, "_blank", "noreferrer");
+      window.open(urls.yahoo, "_blank", "noreferrer");
+    });
+
+    updateClock();
+    setInterval(updateClock, 30000);
+    render();
+  </script>
+</body>
+</html>
