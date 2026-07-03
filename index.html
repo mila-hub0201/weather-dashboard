@@ -4,6 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>天気チェック</title>
+  <meta name="description" content="天気・地震・津波・花粉と生活指数をまとめてチェックできるダッシュボード">
+  <meta name="theme-color" content="#096b72">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-512.png">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="天気チェック">
   <style>
     :root {
       color-scheme: light;
@@ -1757,6 +1766,13 @@
     if (state.tab !== "tsunami") loadTsunami();
     // 10分ごとに表示中のタブを自動更新
     setInterval(() => loadTab(state.tab, true), 10 * 60 * 1000);
+
+    // PWA: サービスワーカー登録 (HTTPSまたはlocalhostでのみ有効)
+    if ("serviceWorker" in navigator && window.isSecureContext) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {
+        // 登録に失敗しても通常のWebページとして動作する
+      });
+    }
   </script>
 </body>
 </html>

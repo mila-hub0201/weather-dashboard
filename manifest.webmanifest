@@ -1,0 +1,19 @@
+{
+  "name": "天気チェック",
+  "short_name": "天気チェック",
+  "description": "天気・地震・津波・花粉と生活指数をまとめてチェックできるダッシュボード",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7f6",
+  "theme_color": "#096b72",
+  "icons": [
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
