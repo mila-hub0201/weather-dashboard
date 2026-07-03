@@ -13,6 +13,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="天気チェック">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     :root {
       color-scheme: light;
@@ -615,6 +616,55 @@
     .warn-tag.warning { background: var(--level-4); }
     .warn-tag.emergency { background: var(--level-5); }
 
+    .radar-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .radar-controls input[type="range"] {
+      flex: 1 1 160px;
+      accent-color: var(--accent);
+    }
+
+    .radar-time {
+      font-weight: 700;
+      font-size: 14px;
+      min-width: 8em;
+    }
+
+    #radarMap {
+      height: clamp(360px, 58vh, 560px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      z-index: 0;
+    }
+
+    .radar-legend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .radar-legend .lg {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .radar-legend .sw {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
     .pollen-now {
       display: flex;
       align-items: center;
@@ -718,6 +768,7 @@
       <label for="viewSelect">表示情報</label>
       <select class="select" id="viewSelect">
         <option value="weather">☀️ 天気</option>
+        <option value="radar">🌧 雨雲</option>
         <option value="quake">🌏 地震</option>
         <option value="tsunami">🌊 津波</option>
         <option value="pollen">🌲 花粉</option>
@@ -768,6 +819,35 @@
         <a class="button" href="https://weather.yahoo.co.jp/weather/" target="_blank" rel="noreferrer"><strong>Yahoo天気</strong><span>詳しく見る ↗</span></a>
       </div>
       <p class="fineprint">予報データ: Open-Meteo (気象庁MSM・欧州ECMWF・米国GFSモデル) / 警報・注意報: 気象庁。生活指数と一致度は本サイト独自の目安です。</p>
+    </section>
+
+    <!-- 雨雲レーダー -->
+    <section class="panel" id="panel-radar" role="tabpanel" hidden>
+      <div class="card">
+        <h2>雨雲レーダー (気象庁 高解像度ナウキャスト)</h2>
+        <div class="status" id="radarStatus">読み込み中…</div>
+        <div class="radar-controls">
+          <button class="button" id="radarPlay" type="button">▶ 再生</button>
+          <input type="range" id="radarSlider" min="0" max="0" value="0" aria-label="表示時刻">
+          <span class="radar-time" id="radarTime">--:--</span>
+        </div>
+        <div id="radarMap"></div>
+        <div class="radar-legend">
+          <span>雨の強さ (mm/h):</span>
+          <span class="lg"><span class="sw" style="background:#a0d2ff"></span>1〜</span>
+          <span class="lg"><span class="sw" style="background:#218cff"></span>5〜</span>
+          <span class="lg"><span class="sw" style="background:#0041ff"></span>10〜</span>
+          <span class="lg"><span class="sw" style="background:#faf500"></span>20〜</span>
+          <span class="lg"><span class="sw" style="background:#ff9900"></span>30〜</span>
+          <span class="lg"><span class="sw" style="background:#ff2800"></span>50〜</span>
+          <span class="lg"><span class="sw" style="background:#b40068"></span>80〜</span>
+        </div>
+      </div>
+      <div class="link-row">
+        <a class="button" href="https://www.jma.go.jp/bosai/nowc/" target="_blank" rel="noreferrer"><strong>気象庁 雨雲の動き</strong><span>詳しく見る ↗</span></a>
+        <a class="button" href="https://weathernews.jp/radar/" target="_blank" rel="noreferrer"><strong>Weathernews 雨雲レーダー</strong><span>詳しく見る ↗</span></a>
+      </div>
+      <p class="fineprint">雨雲: 気象庁 高解像度降水ナウキャスト / 地図: 国土地理院。過去1時間の実況と1時間先までの予測を5分刻みで表示できます。</p>
     </section>
 
     <!-- 地震 -->
@@ -823,6 +903,7 @@
     </section>
   </main>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     "use strict";
 
@@ -838,7 +919,7 @@
 
     const $ = (id) => document.getElementById(id);
     const FRESH_MS = 5 * 60 * 1000;
-    const cache = { weather: 0, quake: 0, tsunami: 0, pollen: 0 };
+    const cache = { weather: 0, quake: 0, tsunami: 0, pollen: 0, radar: 0 };
     let weatherSeq = 0;
     let pollenSeq = 0;
 
@@ -946,6 +1027,10 @@
       renderPlace("");
       cache.weather = 0;
       cache.pollen = 0;
+      if (radarMap) {
+        radarMap.setView([state.location.latitude, state.location.longitude], radarMap.getZoom());
+        radarMarker.setLatLng([state.location.latitude, state.location.longitude]);
+      }
       loadTab(state.tab, true);
     }
 
@@ -1658,6 +1743,99 @@
         `</svg>`;
     }
 
+    // ---------- 雨雲レーダー ----------
+
+    let radarMap = null;
+    let radarLayer = null;
+    let radarMarker = null;
+    let radarFrames = [];
+    let radarTimer = null;
+
+    // 気象庁タイルの時刻は "20260703230500" 形式のUTC
+    function parseJmaTime(text) {
+      return new Date(Date.UTC(
+        +text.slice(0, 4), +text.slice(4, 6) - 1, +text.slice(6, 8),
+        +text.slice(8, 10), +text.slice(10, 12), +text.slice(12, 14)
+      ));
+    }
+
+    function radarTileUrl(frame) {
+      return `https://www.jma.go.jp/bosai/jmatile/data/nowc/${frame.basetime}/none/${frame.validtime}/surf/hrpns/{z}/{x}/{y}.png`;
+    }
+
+    function showRadarFrame(index) {
+      const frame = radarFrames[index];
+      if (!frame || !radarLayer) return;
+      radarLayer.setUrl(radarTileUrl(frame));
+      const time = new Intl.DateTimeFormat("ja-JP", { hour: "2-digit", minute: "2-digit" })
+        .format(parseJmaTime(frame.validtime));
+      $("radarTime").textContent = `${time} ${frame.type === "obs" ? "(実況)" : "(予測)"}`;
+      $("radarSlider").value = index;
+    }
+
+    function stopRadarPlay() {
+      if (radarTimer) {
+        clearInterval(radarTimer);
+        radarTimer = null;
+        $("radarPlay").textContent = "▶ 再生";
+      }
+    }
+
+    async function loadRadar() {
+      const status = $("radarStatus");
+      status.className = "status";
+      status.textContent = "読み込み中…";
+      try {
+        // N1 = 実況 (過去)、N2 = 予測 (1時間先まで)
+        const [pastList, forecastList] = await Promise.all([
+          fetch("https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json").then((r) => r.json()),
+          fetch("https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N2.json").then((r) => r.json())
+        ]);
+        const pick = (list, type) => (list || [])
+          .filter((e) => (e.elements || []).includes("hrpns"))
+          .map((e) => ({ basetime: e.basetime, validtime: e.validtime, type }))
+          .sort((a, b) => a.validtime.localeCompare(b.validtime));
+        const obs = pick(pastList, "obs").slice(-13); // 過去1時間ぶん (5分刻み)
+        const fct = pick(forecastList, "fct")
+          .filter((f) => !obs.length || f.validtime > obs[obs.length - 1].validtime);
+        radarFrames = obs.concat(fct);
+        if (!radarFrames.length) throw new Error("no frames");
+
+        if (!radarMap) {
+          radarMap = L.map("radarMap").setView([state.location.latitude, state.location.longitude], 9);
+          L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+            attribution: "地図: 国土地理院", maxZoom: 18
+          }).addTo(radarMap);
+          radarLayer = L.tileLayer(radarTileUrl(radarFrames[0]), {
+            attribution: "雨雲: 気象庁", opacity: 0.62, maxNativeZoom: 10, maxZoom: 18
+          }).addTo(radarMap);
+          radarMarker = L.marker([state.location.latitude, state.location.longitude]).addTo(radarMap);
+          $("radarSlider").addEventListener("input", () => {
+            stopRadarPlay();
+            showRadarFrame(+$("radarSlider").value);
+          });
+          $("radarPlay").addEventListener("click", () => {
+            if (radarTimer) {
+              stopRadarPlay();
+              return;
+            }
+            $("radarPlay").textContent = "⏸ 停止";
+            radarTimer = setInterval(() => {
+              showRadarFrame((+$("radarSlider").value + 1) % radarFrames.length);
+            }, 600);
+          });
+        }
+        $("radarSlider").max = radarFrames.length - 1;
+        showRadarFrame(Math.max(0, obs.length - 1)); // 最新の実況から表示
+        setTimeout(() => radarMap.invalidateSize(), 60);
+        cache.radar = Date.now();
+        status.textContent = `${fmtDateTime(new Date().toISOString())} 更新 — スライダーや再生で雨雲の動きを確認できます`;
+      } catch {
+        status.className = "status error";
+        status.textContent = "雨雲レーダーを取得できませんでした。↻ 更新で再試行してください。";
+      }
+    }
+
     // ---------- タブと更新 ----------
 
     function loadWeatherAll() {
@@ -1666,7 +1844,7 @@
       loadWarnings();
     }
 
-    const loaders = { weather: loadWeatherAll, quake: loadQuakes, tsunami: loadTsunami, pollen: loadPollen };
+    const loaders = { weather: loadWeatherAll, radar: loadRadar, quake: loadQuakes, tsunami: loadTsunami, pollen: loadPollen };
 
     function loadTab(tab, force) {
       const loader = loaders[tab];
@@ -1674,7 +1852,7 @@
       if (force || Date.now() - cache[tab] > FRESH_MS) loader();
     }
 
-    const viewLabels = { weather: "☀️ 天気", quake: "🌏 地震", tsunami: "🌊 津波", pollen: "🌲 花粉" };
+    const viewLabels = { weather: "☀️ 天気", radar: "🌧 雨雲", quake: "🌏 地震", tsunami: "🌊 津波", pollen: "🌲 花粉" };
 
     function setViewOptionSuffix(value, suffix) {
       const option = $("viewSelect").querySelector(`option[value="${value}"]`);
@@ -1688,6 +1866,8 @@
       document.querySelectorAll(".panel").forEach((panel) => {
         panel.hidden = panel.id !== `panel-${tab}`;
       });
+      if (tab !== "radar") stopRadarPlay();
+      else if (radarMap) setTimeout(() => radarMap.invalidateSize(), 60);
       loadTab(tab, false);
     }
 
