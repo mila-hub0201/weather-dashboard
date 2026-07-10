@@ -810,6 +810,18 @@
       font-size: 12px;
     }
 
+    .about-list {
+      margin: 0;
+      padding-left: 1.2em;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .about-list li + li {
+      margin-top: 4px;
+    }
+
     @media (max-width: 640px) {
       .topbar {
         align-items: flex-start;
@@ -854,7 +866,7 @@
         bottom: 0;
         z-index: 1000;
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(7, 1fr);
         gap: 2px;
         padding: 6px 6px calc(8px + env(safe-area-inset-bottom));
         background: rgba(255, 255, 255, 0.96);
@@ -924,6 +936,7 @@
       <button class="nav-item" data-tab="quake" type="button" aria-selected="false"><span class="nav-emoji">🌏</span><span>地震</span><span class="nav-dot" id="navDotQuake" hidden></span></button>
       <button class="nav-item" data-tab="tsunami" type="button" aria-selected="false"><span class="nav-emoji">🌊</span><span>津波</span><span class="nav-dot" id="navDotTsunami" hidden></span></button>
       <button class="nav-item" data-tab="pollen" type="button" aria-selected="false"><span class="nav-emoji">🌲</span><span>花粉</span></button>
+      <button class="nav-item" data-tab="about" type="button" aria-selected="false"><span class="nav-emoji">ⓘ</span><span>情報</span></button>
     </nav>
 
     <div class="alert-row">
@@ -1071,6 +1084,52 @@
       </div>
       <p class="fineprint">スギ・ヒノキ花粉シーズン (概ね2月〜6月) 以外の観測値は参考値です。</p>
     </section>
+
+    <!-- 情報 -->
+    <section class="panel" id="panel-about" role="tabpanel" hidden>
+      <div class="card">
+        <h2>このアプリについて</h2>
+        <ul class="about-list">
+          <li>天気・雨雲・警報注意報・地震・津波・花粉をまとめて確認する個人向けダッシュボードです。</li>
+          <li>Weathernews、Yahoo天気、tenki.jp、気象庁、国土地理院、Open-Meteo などの公式サービスではありません。</li>
+          <li>アプリ本体は MIT License で配布できます。外部データや外部サービスには、それぞれ別の利用条件があります。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>位置情報とプライバシー</h2>
+        <ul class="about-list">
+          <li>現在地機能を使うと、ブラウザから取得した緯度・経度を使って天気や地域情報を取得します。</li>
+          <li>設定や位置情報は、このブラウザの localStorage に保存されます。</li>
+          <li>このアプリ独自のサーバーへ送信する処理はありませんが、Open-Meteo や国土地理院などの外部APIへ緯度・経度が送信されます。</li>
+          <li>共有端末で使う場合は、ブラウザのサイトデータ削除や現在地設定の解除を行ってください。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>出典・利用サービス</h2>
+        <ul class="about-list">
+          <li>気象庁: 警報・注意報、地震、津波、高解像度降水ナウキャスト</li>
+          <li>国土地理院: 地理院タイル、住所検索、逆ジオコーダ</li>
+          <li>Open-Meteo: 予報・現在天気データ</li>
+          <li>Weathernews WxTech Open Data: 花粉観測データ</li>
+          <li>Leaflet: 地図表示ライブラリ</li>
+          <li>Weathernews / Yahoo天気 / tenki.jp: 関連情報への外部リンク</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>利用上の注意</h2>
+        <ul class="about-list">
+          <li>表示内容は速報性・完全性を保証しません。</li>
+          <li>予報、生活指数、一致度などは目安です。</li>
+          <li>災害時や警報発表時は、気象庁、自治体、防災無線、放送などの公式情報を優先してください。</li>
+          <li>商用利用、広告付き公開、大規模配布、高頻度アクセスでは、各サービスの利用規約や商用プランを確認してください。</li>
+        </ul>
+      </div>
+      <div class="link-row">
+        <a class="button" href="README.md" target="_blank" rel="noreferrer"><strong>README</strong><span>開く ↗</span></a>
+        <a class="button" href="NOTICE.md" target="_blank" rel="noreferrer"><strong>NOTICE</strong><span>開く ↗</span></a>
+        <a class="button" href="LICENSE" target="_blank" rel="noreferrer"><strong>LICENSE</strong><span>開く ↗</span></a>
+      </div>
+    </section>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1089,7 +1148,7 @@
 
     const $ = (id) => document.getElementById(id);
     const FRESH_MS = 5 * 60 * 1000;
-    const cache = { walk: 0, weather: 0, quake: 0, tsunami: 0, pollen: 0, radar: 0 };
+    const cache = { walk: 0, weather: 0, quake: 0, tsunami: 0, pollen: 0, radar: 0, about: 0 };
     let weatherSeq = 0;
     let pollenSeq = 0;
 
@@ -2189,7 +2248,11 @@
       loadWarnings();
     }
 
-    const loaders = { walk: loadWalk, weather: loadWeatherAll, radar: loadRadar, quake: loadQuakes, tsunami: loadTsunami, pollen: loadPollen };
+    function loadAbout() {
+      cache.about = Date.now();
+    }
+
+    const loaders = { walk: loadWalk, weather: loadWeatherAll, radar: loadRadar, quake: loadQuakes, tsunami: loadTsunami, pollen: loadPollen, about: loadAbout };
 
     function loadTab(tab, force) {
       const loader = loaders[tab];
