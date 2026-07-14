@@ -220,6 +220,7 @@
 
     .nav-item .nav-emoji {
       font-size: 16px;
+      line-height: 1;
     }
 
     .nav-icon-image {
@@ -233,6 +234,68 @@
       color: #ffffff;
       background: var(--accent);
       border-color: var(--accent);
+    }
+
+    .more-nav-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .more-nav-menu {
+      position: absolute;
+      z-index: 1100;
+      right: 0;
+      bottom: calc(100% + 8px);
+      display: grid;
+      gap: 4px;
+      min-width: 132px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 10px 24px rgba(22, 36, 48, 0.18);
+    }
+
+    .more-nav-menu[hidden] {
+      display: none;
+    }
+
+    .more-nav-option {
+      min-height: 38px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      padding: 0 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: left;
+    }
+
+    .more-nav-option:hover,
+    .more-nav-option:focus-visible {
+      background: var(--surface-2);
+      outline: none;
+    }
+
+    .more-nav-option[aria-current="true"] {
+      color: var(--accent);
+      background: #e6f0f9;
+    }
+
+    .nav-caret {
+      font-size: 11px;
+      line-height: 1;
+      transition: transform 160ms ease;
+    }
+
+    .nav-item[aria-expanded="true"] .nav-caret {
+      transform: rotate(180deg);
     }
 
     .nav-dot {
@@ -459,32 +522,6 @@
     .link-row .button span {
       color: var(--muted);
       font-size: 12px;
-    }
-
-    .subtabs {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      padding: 16px 0 0;
-    }
-
-    .subtab {
-      min-height: 36px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: var(--surface);
-      color: var(--text);
-      padding: 0 14px;
-      cursor: pointer;
-      font: inherit;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .subtab[aria-selected="true"] {
-      color: #ffffff;
-      border-color: var(--accent);
-      background: var(--accent);
     }
 
     .more-section {
@@ -928,6 +965,20 @@
         font-weight: 600;
       }
 
+      .more-nav-wrap {
+        min-width: 0;
+      }
+
+      .more-nav-menu {
+        right: 0;
+        bottom: calc(100% + 8px);
+        min-width: 126px;
+      }
+
+      .more-nav-option {
+        min-height: 42px;
+      }
+
       .nav-item .nav-emoji {
         font-size: 20px;
       }
@@ -980,7 +1031,14 @@
       <button class="nav-item" data-tab="walk" type="button" aria-selected="true"><span class="nav-emoji"><img class="nav-icon-image" src="icons/walk-running.png" alt=""></span><span>さんぽ</span></button>
       <button class="nav-item" data-tab="weather" type="button" aria-selected="false"><span class="nav-emoji">☀️</span><span>天気</span></button>
       <button class="nav-item" data-tab="radar" type="button" aria-selected="false"><span class="nav-emoji">🌧</span><span>雨雲</span></button>
-      <button class="nav-item" data-tab="more" type="button" aria-selected="false"><span class="nav-emoji">🌏</span><span>防災・花粉</span><span class="nav-dot" id="navDotMore" hidden></span></button>
+      <div class="more-nav-wrap">
+        <button class="nav-item" id="moreNavButton" data-tab="more" type="button" aria-selected="false" aria-haspopup="menu" aria-expanded="false"><span class="nav-emoji" id="moreNavIcon">🌏</span><span id="moreNavLabel">地震</span><span class="nav-caret" aria-hidden="true">▾</span><span class="nav-dot" id="navDotMore" hidden></span></button>
+        <div class="more-nav-menu" id="moreNavMenu" role="menu" aria-label="地震・津波・花粉を選択" hidden>
+          <button class="more-nav-option" data-more-tab="quake" type="button" role="menuitem" aria-current="true"><span aria-hidden="true">🌏</span>地震</button>
+          <button class="more-nav-option" data-more-tab="tsunami" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌊</span>津波</button>
+          <button class="more-nav-option" data-more-tab="pollen" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌼</span>花粉</button>
+        </div>
+      </div>
       <button class="nav-item" data-tab="about" type="button" aria-selected="false"><span class="nav-emoji">ⓘ</span><span>情報</span></button>
     </nav>
 
@@ -1078,14 +1136,8 @@
       <p class="fineprint">雨雲: 気象庁 高解像度降水ナウキャスト / 地図: 国土地理院。過去1時間の実況と1時間先までの予測を5分刻みで表示できます。</p>
     </section>
 
-    <!-- 防災・花粉 -->
+    <!-- 地震・津波・花粉 -->
     <section class="panel" id="panel-more" role="tabpanel" hidden>
-      <div class="subtabs" aria-label="防災・花粉の種類">
-        <button class="subtab" data-more-tab="quake" type="button" aria-selected="true">地震</button>
-        <button class="subtab" data-more-tab="tsunami" type="button" aria-selected="false">津波</button>
-        <button class="subtab" data-more-tab="pollen" type="button" aria-selected="false">花粉</button>
-      </div>
-
       <div class="more-section" id="more-quake">
         <div class="card">
           <h2>最近の地震 (気象庁発表)</h2>
@@ -1224,6 +1276,8 @@
         if (!["quake", "tsunami", "pollen"].includes(merged.moreTab)) {
           merged.moreTab = defaults.moreTab;
         }
+        // Start each app session with earthquakes selected in the combined tab.
+        merged.moreTab = defaults.moreTab;
         return merged;
       } catch {
         return { ...defaults };
@@ -2317,12 +2371,26 @@
     }
 
     function renderMoreTabs() {
+      const moreTabDetails = {
+        quake: { icon: "🌏", label: "地震" },
+        tsunami: { icon: "🌊", label: "津波" },
+        pollen: { icon: "🌼", label: "花粉" }
+      };
+      const current = moreTabDetails[state.moreTab];
+      $("moreNavIcon").textContent = current.icon;
+      $("moreNavLabel").textContent = current.label;
       document.querySelectorAll("[data-more-tab]").forEach((button) => {
-        button.setAttribute("aria-selected", String(button.dataset.moreTab === state.moreTab));
+        button.setAttribute("aria-current", String(button.dataset.moreTab === state.moreTab));
       });
       document.querySelectorAll(".more-section").forEach((section) => {
         section.hidden = section.id !== `more-${state.moreTab}`;
       });
+    }
+
+    function setMoreMenuOpen(open) {
+      const shouldOpen = open && state.tab === "more";
+      $("moreNavMenu").hidden = !shouldOpen;
+      $("moreNavButton").setAttribute("aria-expanded", String(shouldOpen));
     }
 
     function loadMoreTab(tab, force) {
@@ -2347,6 +2415,7 @@
 
     function switchTab(tab) {
       state.tab = tab;
+      if (tab !== "more") setMoreMenuOpen(false);
       saveSettings();
       document.querySelectorAll(".nav-item").forEach((button) => {
         button.setAttribute("aria-selected", String(button.dataset.tab === tab));
@@ -2362,6 +2431,7 @@
     function switchMoreTab(tab) {
       if (!["quake", "tsunami", "pollen"].includes(tab)) return;
       state.moreTab = tab;
+      setMoreMenuOpen(false);
       if (state.tab !== "more") {
         switchTab("more");
         return;
@@ -2372,10 +2442,25 @@
     }
 
     document.querySelectorAll(".nav-item").forEach((button) => {
-      button.addEventListener("click", () => switchTab(button.dataset.tab));
+      if (button.dataset.tab !== "more") {
+        button.addEventListener("click", () => switchTab(button.dataset.tab));
+      }
+    });
+    $("moreNavButton").addEventListener("click", () => {
+      if (state.tab !== "more") {
+        switchTab("more");
+        return;
+      }
+      setMoreMenuOpen($("moreNavMenu").hidden);
     });
     document.querySelectorAll("[data-more-tab]").forEach((button) => {
       button.addEventListener("click", () => switchMoreTab(button.dataset.moreTab));
+    });
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".more-nav-wrap")) setMoreMenuOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setMoreMenuOpen(false);
     });
     $("quakeAlert").addEventListener("click", () => switchMoreTab("quake"));
     $("tsunamiAlert").addEventListener("click", () => switchMoreTab("tsunami"));
@@ -2445,6 +2530,7 @@
     updateClock();
     setInterval(updateClock, 30000);
     renderPlace("");
+    renderMoreTabs();
     switchTab("walk"); // 起動時は必ずウォーキングタブから開く
     // 警戒バッジ表示のため地震・津波は起動時に必ず確認する
     loadQuakes();
