@@ -115,7 +115,7 @@
     }
 
     .search input {
-      min-height: 36px;
+      min-height: 44px;
       width: clamp(150px, 24vw, 240px);
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -125,7 +125,7 @@
     }
 
     .button {
-      min-height: 36px;
+      min-height: 44px;
       border: 1px solid var(--line);
       background: var(--surface);
       color: var(--text);
@@ -156,7 +156,13 @@
       background: var(--accent);
     }
 
+    .button.secondary {
+      color: var(--muted);
+      background: #f8fafc;
+    }
+
     .button.location-active {
+      color: var(--accent);
       border-color: #7fabd3;
       background: #e6f0f9;
     }
@@ -194,6 +200,69 @@
       font-size: 12px;
       padding: 4px 10px;
     }
+
+    .network-banner {
+      margin-top: 12px;
+      border: 1px solid #e3c65a;
+      border-radius: var(--radius);
+      background: #fff7df;
+      color: #745300;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .network-banner[hidden] {
+      display: none;
+    }
+
+    .safety-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .safety-item {
+      min-width: 0;
+      min-height: 58px;
+      border: 1px solid var(--line);
+      border-left-width: 5px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      padding: 8px 10px;
+      display: grid;
+      gap: 2px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .safety-item .si-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .safety-item .si-main {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .safety-item .si-time {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .safety-item.ok { border-left-color: var(--level-1); }
+    .safety-item.caution { border-left-color: var(--level-2); }
+    .safety-item.warn { border-left-color: var(--level-4); }
+    .safety-item.emergency { border-left-color: var(--level-5); }
+    .safety-item.unknown { border-left-color: #9aa8b5; }
+    .safety-item.error { border-left-color: var(--accent-2); background: #fff4f1; }
 
     .bottomnav {
       display: flex;
@@ -320,7 +389,7 @@
     }
 
     .select {
-      min-height: 36px;
+      min-height: 44px;
       border: 1px solid var(--line);
       background-color: var(--surface);
       color: var(--text);
@@ -393,6 +462,72 @@
       font-size: 15px;
       color: var(--muted);
       font-weight: 700;
+    }
+
+    .card.priority h2 {
+      color: var(--text);
+      font-size: 17px;
+    }
+
+    .today-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-tile {
+      border: 1px solid var(--line);
+      border-left-width: 5px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      padding: 10px 12px;
+      display: grid;
+      gap: 4px;
+      min-height: 86px;
+      align-content: start;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .summary-tile.ok { border-left-color: var(--level-1); }
+    .summary-tile.caution { border-left-color: var(--level-2); }
+    .summary-tile.warn { border-left-color: var(--level-4); }
+    .summary-tile.emergency { border-left-color: var(--level-5); }
+    .summary-tile.unknown { border-left-color: #9aa8b5; }
+
+    .summary-tile .st-head {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .summary-tile .st-main {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .summary-tile .st-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .summary-tile:hover,
+    .safety-item:hover {
+      background: #fafcfe;
+    }
+
+    .button:focus-visible,
+    .nav-item:focus-visible,
+    .more-nav-option:focus-visible,
+    .safety-item:focus-visible,
+    .summary-tile:focus-visible,
+    .select:focus-visible,
+    .search input:focus-visible {
+      outline: 3px solid rgba(18, 114, 182, 0.28);
+      outline-offset: 2px;
     }
 
     .status {
@@ -921,6 +1056,11 @@
         width: auto;
       }
 
+      .safety-strip,
+      .today-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .place-name {
         max-width: 100%;
       }
@@ -956,7 +1096,7 @@
       .nav-item {
         flex-direction: column;
         gap: 2px;
-        min-height: 0;
+        min-height: 52px;
         padding: 6px 2px;
         border: 0;
         background: transparent;
@@ -1024,30 +1164,55 @@
           <input id="searchInput" type="search" placeholder="地名で検索 (例: 横浜)" autocomplete="off">
           <button class="button" type="submit">検索</button>
         </form>
-        <button class="button" id="useLocation" type="button">⌖ 現在地</button>
+        <button class="button primary" id="useLocation" type="button">⌖ 現在地</button>
         <select class="select" id="favSelect" title="お気に入り地域から選ぶ">
           <option value="">★ お気に入り</option>
         </select>
-        <button class="button fav-button" id="favToggle" type="button" title="表示中の地域をお気に入りに登録/解除">☆ 登録</button>
-        <button class="button primary" id="reloadAll" type="button">↻ 更新</button>
+        <button class="button secondary fav-button" id="favToggle" type="button" title="表示中の地域をお気に入りに登録/解除">☆ 登録</button>
+        <button class="button" id="reloadAll" type="button">↻ 重要情報を更新</button>
       </div>
     </header>
 
     <div class="search-results" id="searchResults" hidden></div>
 
-    <nav class="bottomnav" aria-label="情報の種類">
-      <button class="nav-item" data-tab="walk" type="button" aria-selected="true"><span class="nav-emoji"><img class="nav-icon-image" src="icons/walk-running.png" alt=""></span><span>さんぽ</span></button>
-      <button class="nav-item" data-tab="weather" type="button" aria-selected="false"><span class="nav-emoji">☀️</span><span>天気</span></button>
-      <button class="nav-item" data-tab="radar" type="button" aria-selected="false"><span class="nav-emoji">🌧</span><span>雨雲</span></button>
+    <div class="network-banner" id="networkBanner" role="status" aria-live="polite" hidden></div>
+
+    <section class="safety-strip" aria-label="重要情報の状態">
+      <button class="safety-item unknown" id="safetyWarnings" type="button">
+        <span class="si-label">警報・注意報</span>
+        <span class="si-main">未確認</span>
+        <span class="si-time">最終取得 --</span>
+      </button>
+      <button class="safety-item unknown" id="safetyQuake" type="button">
+        <span class="si-label">地震</span>
+        <span class="si-main">未確認</span>
+        <span class="si-time">最終取得 --</span>
+      </button>
+      <button class="safety-item unknown" id="safetyTsunami" type="button">
+        <span class="si-label">津波</span>
+        <span class="si-main">未確認</span>
+        <span class="si-time">最終取得 --</span>
+      </button>
+      <button class="safety-item unknown" id="safetyRadar" type="button">
+        <span class="si-label">雨雲</span>
+        <span class="si-main">タブで確認</span>
+        <span class="si-time">最終取得 --</span>
+      </button>
+    </section>
+
+    <nav class="bottomnav" aria-label="情報の種類" role="tablist">
+      <button class="nav-item" id="tab-walk" data-tab="walk" type="button" role="tab" aria-selected="true" aria-controls="panel-walk"><span class="nav-emoji"><img class="nav-icon-image" src="icons/walk-running.png" alt=""></span><span>今日</span></button>
+      <button class="nav-item" id="tab-weather" data-tab="weather" type="button" role="tab" aria-selected="false" aria-controls="panel-weather"><span class="nav-emoji">☀️</span><span>天気</span></button>
+      <button class="nav-item" id="tab-radar" data-tab="radar" type="button" role="tab" aria-selected="false" aria-controls="panel-radar"><span class="nav-emoji">🌧</span><span>雨雲</span></button>
       <div class="more-nav-wrap">
-        <button class="nav-item" id="moreNavButton" data-tab="more" type="button" aria-selected="false" aria-haspopup="menu" aria-expanded="false"><span class="nav-emoji" id="moreNavIcon">🌏</span><span id="moreNavLabel">地震</span><span class="nav-caret" aria-hidden="true">▾</span><span class="nav-dot" id="navDotMore" hidden></span></button>
-        <div class="more-nav-menu" id="moreNavMenu" role="menu" aria-label="地震・津波・花粉を選択" hidden>
+        <button class="nav-item" id="moreNavButton" data-tab="more" type="button" role="tab" aria-selected="false" aria-controls="panel-more" aria-haspopup="menu" aria-expanded="false"><span class="nav-emoji" id="moreNavIcon">🌏</span><span id="moreNavLabel">防災</span><span class="nav-caret" aria-hidden="true">▾</span><span class="nav-dot" id="navDotMore" hidden></span></button>
+        <div class="more-nav-menu" id="moreNavMenu" role="menu" aria-label="防災・生活情報を選択" hidden>
           <button class="more-nav-option" data-more-tab="quake" type="button" role="menuitem" aria-current="true"><span aria-hidden="true">🌏</span>地震</button>
           <button class="more-nav-option" data-more-tab="tsunami" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌊</span>津波</button>
           <button class="more-nav-option" data-more-tab="pollen" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌼</span>花粉</button>
         </div>
       </div>
-      <button class="nav-item" data-tab="about" type="button" aria-selected="false"><span class="nav-emoji">ⓘ</span><span>情報</span></button>
+      <button class="nav-item" id="tab-about" data-tab="about" type="button" role="tab" aria-selected="false" aria-controls="panel-about"><span class="nav-emoji">ⓘ</span><span>情報</span></button>
     </nav>
 
     <div class="alert-row">
@@ -1056,7 +1221,16 @@
     </div>
 
     <!-- ウォーキング -->
-    <section class="panel" id="panel-walk" role="tabpanel">
+    <section class="panel" id="panel-walk" role="tabpanel" aria-labelledby="tab-walk">
+      <div class="card priority">
+        <h2>今日の確認</h2>
+        <div class="today-summary" id="todaySummary">
+          <div class="summary-tile unknown"><div class="st-head">現在の天気</div><div class="st-main">読み込み中</div><div class="st-note">現在地または選択地域の天気</div></div>
+          <div class="summary-tile unknown"><div class="st-head">防災</div><div class="st-main">確認中</div><div class="st-note">警報・地震・津波を確認します</div></div>
+          <div class="summary-tile unknown"><div class="st-head">雨雲</div><div class="st-main">タブで確認</div><div class="st-note">レーダーで5分刻みの動きを確認</div></div>
+          <div class="summary-tile unknown"><div class="st-head">さんぽ</div><div class="st-main">判定中</div><div class="st-note">これから3時間を確認します</div></div>
+        </div>
+      </div>
       <div class="banner" id="walkBanner">読み込み中…</div>
       <div class="card">
         <h2>これから3時間 (1時間ごと)</h2>
@@ -1072,7 +1246,7 @@
     </section>
 
     <!-- 天気 -->
-    <section class="panel" id="panel-weather" role="tabpanel" hidden>
+    <section class="panel" id="panel-weather" role="tabpanel" aria-labelledby="tab-weather" hidden>
       <div class="card">
         <h2>現在の天気</h2>
         <div class="status" id="weatherStatus">読み込み中…</div>
@@ -1116,7 +1290,7 @@
     </section>
 
     <!-- 雨雲レーダー -->
-    <section class="panel" id="panel-radar" role="tabpanel" hidden>
+    <section class="panel" id="panel-radar" role="tabpanel" aria-labelledby="tab-radar" hidden>
       <div class="card">
         <h2>雨雲レーダー (気象庁 高解像度ナウキャスト)</h2>
         <div class="status" id="radarStatus">読み込み中…</div>
@@ -1145,7 +1319,7 @@
     </section>
 
     <!-- 地震・津波・花粉 -->
-    <section class="panel" id="panel-more" role="tabpanel" hidden>
+    <section class="panel" id="panel-more" role="tabpanel" aria-labelledby="moreNavButton" hidden>
       <div class="more-section" id="more-quake">
         <div class="card">
           <h2>最近の地震 (気象庁発表)</h2>
@@ -1197,7 +1371,7 @@
     </section>
 
     <!-- 情報 -->
-    <section class="panel" id="panel-about" role="tabpanel" hidden>
+    <section class="panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about" hidden>
       <div class="card">
         <h2>このアプリについて</h2>
         <ul class="about-list">
@@ -1250,7 +1424,7 @@
     const defaults = {
       location: { name: "東京 (千代田区)", latitude: 35.6812, longitude: 139.7671 },
       fromGeolocation: false,
-      tab: "weather",
+      tab: "walk",
       moreTab: "quake",
       favorites: []
     };
@@ -1307,6 +1481,81 @@
         month: "numeric", day: "numeric", weekday: "short",
         hour: "2-digit", minute: "2-digit"
       }).format(date);
+    }
+
+    function fmtUpdated(ms) {
+      if (!ms) return "最終取得 --";
+      return `最終取得 ${new Intl.DateTimeFormat("ja-JP", {
+        hour: "2-digit", minute: "2-digit"
+      }).format(new Date(ms))}`;
+    }
+
+    const important = {
+      warnings: { level: "unknown", text: "未確認", updated: 0 },
+      quake: { level: "unknown", text: "未確認", updated: 0 },
+      tsunami: { level: "unknown", text: "未確認", updated: 0 },
+      radar: { level: "unknown", text: "タブで確認", updated: 0 },
+      weather: { level: "unknown", text: "読み込み中", note: "現在地または選択地域の天気", updated: 0 },
+      walk: { level: "unknown", text: "判定中", note: "これから3時間を確認します", updated: 0 }
+    };
+
+    function levelClass(level) {
+      return ["ok", "caution", "warn", "emergency", "error", "unknown"].includes(level) ? level : "unknown";
+    }
+
+    function setImportant(key, next) {
+      important[key] = { ...important[key], ...next };
+      renderImportantStatus();
+    }
+
+    function renderSafetyItem(id, item) {
+      const button = $(id);
+      if (!button) return;
+      button.className = `safety-item ${levelClass(item.level)}`;
+      button.querySelector(".si-main").textContent = item.text;
+      button.querySelector(".si-time").textContent = fmtUpdated(item.updated);
+    }
+
+    function worstSafetyLevel() {
+      const levels = [important.warnings.level, important.quake.level, important.tsunami.level];
+      if (levels.includes("emergency")) return "emergency";
+      if (levels.includes("warn")) return "warn";
+      if (levels.includes("caution")) return "caution";
+      if (levels.includes("error")) return "caution";
+      if (levels.every((level) => level === "ok")) return "ok";
+      return "unknown";
+    }
+
+    function renderImportantStatus() {
+      renderSafetyItem("safetyWarnings", important.warnings);
+      renderSafetyItem("safetyQuake", important.quake);
+      renderSafetyItem("safetyTsunami", important.tsunami);
+      renderSafetyItem("safetyRadar", important.radar);
+      const summary = $("todaySummary");
+      if (summary) {
+        const safetyLevel = worstSafetyLevel();
+        const safetyText = safetyLevel === "ok" ? "異常なし" :
+          safetyLevel === "emergency" ? "至急確認を" :
+          safetyLevel === "warn" ? "公式確認を" :
+          safetyLevel === "caution" ? "注意して確認" : "確認中";
+        summary.innerHTML =
+          `<button class="summary-tile ${levelClass(important.weather.level)}" type="button" data-summary-tab="weather"><span class="st-head">現在の天気</span><span class="st-main">${escapeHtml(important.weather.text)}</span><span class="st-note">${escapeHtml(important.weather.note || fmtUpdated(important.weather.updated))}</span></button>` +
+          `<button class="summary-tile ${levelClass(safetyLevel)}" type="button" data-summary-tab="more"><span class="st-head">防災</span><span class="st-main">${safetyText}</span><span class="st-note">警報 ${escapeHtml(important.warnings.text)} / 地震 ${escapeHtml(important.quake.text)} / 津波 ${escapeHtml(important.tsunami.text)}</span></button>` +
+          `<button class="summary-tile ${levelClass(important.radar.level)}" type="button" data-summary-tab="radar"><span class="st-head">雨雲</span><span class="st-main">${escapeHtml(important.radar.text)}</span><span class="st-note">${fmtUpdated(important.radar.updated)}。レーダーで詳しく確認</span></button>` +
+          `<button class="summary-tile ${levelClass(important.walk.level)}" type="button"><span class="st-head">さんぽ</span><span class="st-main">${escapeHtml(important.walk.text)}</span><span class="st-note">${escapeHtml(important.walk.note || fmtUpdated(important.walk.updated))}</span></button>`;
+      }
+    }
+
+    function updateNetworkBanner() {
+      const banner = $("networkBanner");
+      if (!banner) return;
+      if (navigator.onLine) {
+        banner.hidden = true;
+        banner.textContent = "";
+        return;
+      }
+      banner.hidden = false;
+      banner.textContent = "オフラインです。画面は開けていますが、天気・警報などの最新情報は取得できていません。";
     }
 
     function weatherEmoji(code) {
@@ -1379,11 +1628,18 @@
       cache.walk = 0;
       cache.weather = 0;
       cache.pollen = 0;
+      cache.radar = 0;
+      setImportant("warnings", { level: "unknown", text: "未確認", updated: 0 });
+      setImportant("weather", { level: "unknown", text: "読み込み中", note: "現在地または選択地域の天気", updated: 0 });
+      setImportant("walk", { level: "unknown", text: "判定中", note: "これから3時間を確認します", updated: 0 });
+      setImportant("radar", { level: "unknown", text: "タブで確認", updated: 0 });
       if (radarMap) {
         radarMap.setView([state.location.latitude, state.location.longitude], radarMap.getZoom());
         radarMarker.setLatLng([state.location.latitude, state.location.longitude]);
       }
-      loadTab(state.tab, true);
+      refreshImportant();
+      if (state.tab === "more" && state.moreTab === "pollen") loadPollen();
+      if (state.tab === "about") loadAbout();
     }
 
     async function searchPlaces(query) {
@@ -1478,12 +1734,26 @@
         renderHourly(data.hourly || {});
         renderWeekly(data.daily || {});
         renderLifeIndexes(data);
-        cache.weather = Date.now();
+        const updated = Date.now();
+        cache.weather = updated;
+        const now = data.current || {};
+        const temp = Number.isFinite(now.temperature_2m) ? `${Math.round(now.temperature_2m)}℃` : "--";
+        setImportant("weather", {
+          level: "ok",
+          text: `${weatherLabel(now.weather_code)} ${temp}`,
+          note: `体感 ${Number.isFinite(now.apparent_temperature) ? Math.round(now.apparent_temperature) + "℃" : "--"} / ${fmtUpdated(updated)}`,
+          updated
+        });
         status.textContent = `${fmtDateTime(new Date().toISOString())} 更新`;
       } catch {
         if (seq !== weatherSeq) return;
         status.className = "status error";
         status.textContent = "天気を取得できませんでした。↻ 更新で再試行してください。";
+        setImportant("weather", {
+          level: "error",
+          text: "取得失敗",
+          note: "通信状態を確認し、更新してください"
+        });
       }
     }
 
@@ -1854,12 +2124,15 @@
         if (seq !== warningSeq) return;
         if (!hit) {
           status.textContent = "この地点の警報・注意報エリアを特定できませんでした。";
+          setImportant("warnings", { level: "unknown", text: "地域不明", updated: Date.now() });
           return;
         }
         const active = (hit.area.warnings || []).filter((w) => w.code && (w.status === "発表" || w.status === "継続"));
+        const updated = Date.now();
         if (!active.length) {
           status.textContent = "";
           list.innerHTML = '<div class="banner ok">✓ 現在、警報・注意報は発表されていません</div>';
+          setImportant("warnings", { level: "ok", text: "発表なし", updated });
           return;
         }
         const tags = active.map((w) => {
@@ -1869,10 +2142,14 @@
         }).join("");
         status.textContent = "";
         list.innerHTML = tags + (hit.headline ? `<p class="fineprint">${escapeHtml(hit.headline)}</p>` : "");
+        const names = active.map((w) => warningNames[w.code] || "").join(" ");
+        const level = names.includes("特別警報") ? "emergency" : names.includes("警報") ? "warn" : "caution";
+        setImportant("warnings", { level, text: `${active.length}件発表中`, updated });
       } catch {
         if (seq !== warningSeq) return;
         status.className = "status error";
         status.textContent = "警報・注意報を取得できませんでした。";
+        setImportant("warnings", { level: "error", text: "取得失敗" });
       }
     }
 
@@ -1913,7 +2190,8 @@
             (label ? `<span class="intensity ${cls}">震度${label}</span>` : `<span class="intensity">--</span>`) +
             `</div>`;
         }).join("") || '<div class="status">直近の地震情報はありません。</div>';
-        cache.quake = Date.now();
+        const updated = Date.now();
+        cache.quake = updated;
         status.textContent = `${fmtDateTime(new Date().toISOString())} 更新`;
 
         // 1時間以内に震度3以上があれば警告ピルとプルダウンに表示する
@@ -1926,13 +2204,16 @@
           const label = `震度${intensityLabel(top.maxi)}`;
           pill.textContent = `⚠ 地震 ${label} (1時間以内)`;
           pill.hidden = false;
+          setImportant("quake", { level: "caution", text: `${label}あり`, updated });
         } else {
           pill.hidden = true;
+          setImportant("quake", { level: "ok", text: "直近警戒なし", updated });
         }
         updateMoreNavDot();
       } catch {
         status.className = "status error";
         status.textContent = "地震情報を取得できませんでした。↻ 更新で再試行してください。";
+        setImportant("quake", { level: "error", text: "取得失敗" });
       }
     }
 
@@ -1964,12 +2245,14 @@
           banner.textContent = "⚠ 津波警報・注意報に関する発表があります。沿岸部では最新情報を確認してください。";
           pill.textContent = "⚠ 津波情報 発表中";
           pill.hidden = false;
+          setImportant("tsunami", { level: "warn", text: "発表あり", updated: Date.now() });
         } else {
           banner.className = "banner ok";
           banner.textContent = recent.length
             ? "現在、大津波警報・津波警報・津波注意報の発表はありません (若干の海面変動などの情報があります)。"
             : "現在、津波警報・注意報・予報の発表はありません。";
           pill.hidden = true;
+          setImportant("tsunami", { level: "ok", text: "発表なし", updated: Date.now() });
         }
         updateMoreNavDot();
 
@@ -1989,6 +2272,7 @@
         banner.textContent = "津波情報を確認できませんでした。";
         status.className = "status error";
         status.textContent = "津波情報を取得できませんでした。↻ 更新で再試行してください。";
+        setImportant("tsunami", { level: "error", text: "取得失敗" });
       }
     }
 
@@ -2182,11 +2466,14 @@
         $("radarSlider").max = radarFrames.length - 1;
         showRadarFrame(Math.max(0, obs.length - 1)); // 最新の実況から表示
         setTimeout(() => radarMap.invalidateSize(), 60);
-        cache.radar = Date.now();
+        const updated = Date.now();
+        cache.radar = updated;
+        setImportant("radar", { level: "ok", text: "取得済み", updated });
         status.textContent = `${fmtDateTime(new Date().toISOString())} 更新 — スライダーや再生で雨雲の動きを確認できます`;
       } catch {
         status.className = "status error";
         status.textContent = "雨雲レーダーを取得できませんでした。↻ 更新で再試行してください。";
+        setImportant("radar", { level: "error", text: "取得失敗" });
       }
     }
 
@@ -2226,7 +2513,9 @@
         const data = await response.json();
         if (seq !== walkSeq) return;
         renderWalk(data);
-        cache.walk = Date.now();
+        const updated = Date.now();
+        cache.walk = updated;
+        setImportant("walk", { updated });
         status.textContent = `${fmtDateTime(new Date().toISOString())} 更新`;
       } catch {
         if (seq !== walkSeq) return;
@@ -2235,6 +2524,7 @@
         const banner = $("walkBanner");
         banner.className = "banner";
         banner.textContent = "判定できませんでした";
+        setImportant("walk", { level: "error", text: "取得失敗", note: "通信状態を確認し、更新してください" });
       }
     }
 
@@ -2262,6 +2552,7 @@
       }
       if (!hours.length) {
         $("walkHours").innerHTML = '<div class="status">データがありません</div>';
+        setImportant("walk", { level: "unknown", text: "データなし", note: "予報データを確認できません" });
         return;
       }
 
@@ -2329,21 +2620,27 @@
       if (wbgtMax !== null && wbgtMax >= 31) {
         banner.className = "banner alert";
         banner.textContent = "⚠ 熱中症危険 — この時間帯の散歩は中止しましょう";
+        setImportant("walk", { level: "warn", text: "中止推奨", note: "熱中症危険。涼しい室内で過ごしましょう" });
       } else if (wbgtMax !== null && wbgtMax >= 28) {
         banner.className = "banner alert";
         banner.textContent = "⚠ 熱中症厳重警戒 — 涼しい時間帯まで待つのがおすすめです";
+        setImportant("walk", { level: "warn", text: "厳重警戒", note: "涼しい時間帯まで待つのがおすすめ" });
       } else if (popMax >= 50) {
         banner.className = "banner rain";
         banner.textContent = "☔ 雨の可能性が高め — 出かけるなら傘を忘れずに";
+        setImportant("walk", { level: "caution", text: "傘が必要", note: "雨の可能性が高めです" });
       } else if (popMax >= 20) {
         banner.className = "banner caution";
         banner.textContent = `△ にわか雨に注意 — ${bestHour}時台が比較的歩きやすそうです`;
+        setImportant("walk", { level: "caution", text: `${bestHour}時台がおすすめ`, note: "にわか雨に注意してください" });
       } else if (wbgtMax !== null && wbgtMax >= 25) {
         banner.className = "banner caution";
         banner.textContent = "△ 暑さ警戒 — 水分を持って、無理のないペースで";
+        setImportant("walk", { level: "caution", text: "暑さ警戒", note: "水分を持って無理のないペースで" });
       } else {
         banner.className = "banner ok";
         banner.textContent = "✓ 歩きやすいコンディションです — いってらっしゃい!";
+        setImportant("walk", { level: "ok", text: "歩きやすい", note: `${bestHour}時台が比較的おすすめです` });
       }
 
       // 補足 (強風・日没)
@@ -2372,15 +2669,21 @@
       loadWarnings();
     }
 
+    function loadToday() {
+      loadWalk();
+      loadWeather();
+      loadWarnings();
+    }
+
     function loadAbout() {
       cache.about = Date.now();
     }
 
     function renderMoreTabs() {
       const moreTabDetails = {
-        quake: { icon: "🌏", label: "地震" },
-        tsunami: { icon: "🌊", label: "津波" },
-        pollen: { icon: "🌼", label: "花粉" }
+        quake: { icon: "🌏", label: "防災" },
+        tsunami: { icon: "🌊", label: "防災" },
+        pollen: { icon: "🌼", label: "生活" }
       };
       const current = moreTabDetails[state.moreTab];
       $("moreNavIcon").textContent = current.icon;
@@ -2411,7 +2714,14 @@
       loadMoreTab(state.moreTab, force);
     }
 
-    const loaders = { walk: loadWalk, weather: loadWeatherAll, radar: loadRadar, more: loadMore, about: loadAbout };
+    function refreshImportant() {
+      loadToday();
+      loadQuakes();
+      loadTsunami();
+      loadRadar();
+    }
+
+    const loaders = { walk: loadToday, weather: loadWeatherAll, radar: loadRadar, more: loadMore, about: loadAbout };
 
     function loadTab(tab, force) {
       const loader = loaders[tab];
@@ -2470,6 +2780,14 @@
     });
     $("quakeAlert").addEventListener("click", () => switchMoreTab("quake"));
     $("tsunamiAlert").addEventListener("click", () => switchMoreTab("tsunami"));
+    $("safetyWarnings").addEventListener("click", () => switchTab("weather"));
+    $("safetyQuake").addEventListener("click", () => switchMoreTab("quake"));
+    $("safetyTsunami").addEventListener("click", () => switchMoreTab("tsunami"));
+    $("safetyRadar").addEventListener("click", () => switchTab("radar"));
+    $("todaySummary").addEventListener("click", (event) => {
+      const tile = event.target.closest("[data-summary-tab]");
+      if (tile) switchTab(tile.dataset.summaryTab);
+    });
 
     $("favSelect").addEventListener("change", () => {
       const fav = state.favorites.find((f) => favKey(f) === $("favSelect").value);
@@ -2518,10 +2836,7 @@
     });
 
     $("reloadAll").addEventListener("click", () => {
-      loadTab(state.tab, true);
-      // バッジ用に地震・津波は裏でも更新しておく
-      if (state.tab !== "more" || state.moreTab !== "quake") loadQuakes();
-      if (state.tab !== "more" || state.moreTab !== "tsunami") loadTsunami();
+      refreshImportant();
     });
 
     function updateClock() {
@@ -2533,14 +2848,23 @@
 
     // ---------- 起動 ----------
 
+    document.querySelectorAll(".status").forEach((status) => {
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+    });
+    updateNetworkBanner();
+    window.addEventListener("online", updateNetworkBanner);
+    window.addEventListener("offline", updateNetworkBanner);
+    renderImportantStatus();
     updateClock();
     setInterval(updateClock, 30000);
     renderPlace("");
     renderMoreTabs();
-    switchTab("walk"); // 起動時は必ずウォーキングタブから開く
+    switchTab(state.tab);
     // 警戒バッジ表示のため地震・津波は起動時に必ず確認する
     loadQuakes();
     loadTsunami();
+    if (!["walk", "weather"].includes(state.tab)) loadToday();
     // 10分ごとに表示中のタブを自動更新
     setInterval(() => loadTab(state.tab, true), 10 * 60 * 1000);
 
