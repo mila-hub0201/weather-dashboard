@@ -1,14 +1,15 @@
 "use strict";
 
 // キャッシュを更新したいときはこのバージョンを上げる
-const CACHE_NAME = "weather-dashboard-v3";
+const CACHE_NAME = "weather-dashboard-v4";
 
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icons/icon-512.png",
-  "./icons/icon-maskable-512.png"
+  "./icons/icon-maskable-512.png",
+  "./icons/walk-running.png"
 ];
 
 self.addEventListener("install", (event) => {

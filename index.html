@@ -222,6 +222,13 @@
       font-size: 16px;
     }
 
+    .nav-icon-image {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      display: block;
+    }
+
     .nav-item[aria-selected="true"] {
       color: #ffffff;
       background: var(--accent);
@@ -452,6 +459,41 @@
     .link-row .button span {
       color: var(--muted);
       font-size: 12px;
+    }
+
+    .subtabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 16px 0 0;
+    }
+
+    .subtab {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 14px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .subtab[aria-selected="true"] {
+      color: #ffffff;
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .more-section {
+      display: grid;
+      gap: 14px;
+    }
+
+    .more-section[hidden] {
+      display: none;
     }
 
     .list {
@@ -866,7 +908,7 @@
         bottom: 0;
         z-index: 1000;
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         gap: 2px;
         padding: 6px 6px calc(8px + env(safe-area-inset-bottom));
         background: rgba(255, 255, 255, 0.96);
@@ -888,6 +930,11 @@
 
       .nav-item .nav-emoji {
         font-size: 20px;
+      }
+
+      .nav-icon-image {
+        width: 24px;
+        height: 24px;
       }
 
       .nav-item[aria-selected="true"] {
@@ -930,12 +977,10 @@
     <div class="search-results" id="searchResults" hidden></div>
 
     <nav class="bottomnav" aria-label="情報の種類">
-      <button class="nav-item" data-tab="walk" type="button" aria-selected="true"><span class="nav-emoji">🚶</span><span>さんぽ</span></button>
+      <button class="nav-item" data-tab="walk" type="button" aria-selected="true"><span class="nav-emoji"><img class="nav-icon-image" src="icons/walk-running.png" alt=""></span><span>さんぽ</span></button>
       <button class="nav-item" data-tab="weather" type="button" aria-selected="false"><span class="nav-emoji">☀️</span><span>天気</span></button>
       <button class="nav-item" data-tab="radar" type="button" aria-selected="false"><span class="nav-emoji">🌧</span><span>雨雲</span></button>
-      <button class="nav-item" data-tab="quake" type="button" aria-selected="false"><span class="nav-emoji">🌏</span><span>地震</span><span class="nav-dot" id="navDotQuake" hidden></span></button>
-      <button class="nav-item" data-tab="tsunami" type="button" aria-selected="false"><span class="nav-emoji">🌊</span><span>津波</span><span class="nav-dot" id="navDotTsunami" hidden></span></button>
-      <button class="nav-item" data-tab="pollen" type="button" aria-selected="false"><span class="nav-emoji">🌲</span><span>花粉</span></button>
+      <button class="nav-item" data-tab="more" type="button" aria-selected="false"><span class="nav-emoji">🌏</span><span>防災・花粉</span><span class="nav-dot" id="navDotMore" hidden></span></button>
       <button class="nav-item" data-tab="about" type="button" aria-selected="false"><span class="nav-emoji">ⓘ</span><span>情報</span></button>
     </nav>
 
@@ -1033,56 +1078,62 @@
       <p class="fineprint">雨雲: 気象庁 高解像度降水ナウキャスト / 地図: 国土地理院。過去1時間の実況と1時間先までの予測を5分刻みで表示できます。</p>
     </section>
 
-    <!-- 地震 -->
-    <section class="panel" id="panel-quake" role="tabpanel" hidden>
-      <div class="card">
-        <h2>最近の地震 (気象庁発表)</h2>
-        <div class="status" id="quakeStatus">読み込み中…</div>
-        <div class="list" id="quakeList"></div>
+    <!-- 防災・花粉 -->
+    <section class="panel" id="panel-more" role="tabpanel" hidden>
+      <div class="subtabs" aria-label="防災・花粉の種類">
+        <button class="subtab" data-more-tab="quake" type="button" aria-selected="true">地震</button>
+        <button class="subtab" data-more-tab="tsunami" type="button" aria-selected="false">津波</button>
+        <button class="subtab" data-more-tab="pollen" type="button" aria-selected="false">花粉</button>
       </div>
-      <div class="link-row">
-        <a class="button" href="https://typhoon.yahoo.co.jp/weather/jp/earthquake/" target="_blank" rel="noreferrer"><strong>Yahoo 地震情報</strong><span>詳しく見る ↗</span></a>
-        <a class="button" href="https://www.jma.go.jp/bosai/map.html#contents=earthquake_map" target="_blank" rel="noreferrer"><strong>気象庁 地震情報</strong><span>詳しく見る ↗</span></a>
-      </div>
-    </section>
 
-    <!-- 津波 -->
-    <section class="panel" id="panel-tsunami" role="tabpanel" hidden>
-      <div class="banner" id="tsunamiBanner">確認中…</div>
-      <div class="card">
-        <h2>直近の津波関連情報 (気象庁発表・48時間以内)</h2>
-        <div class="status" id="tsunamiStatus">読み込み中…</div>
-        <div class="list" id="tsunamiList"></div>
-      </div>
-      <div class="link-row">
-        <a class="button" href="https://typhoon.yahoo.co.jp/weather/jp/tsunami/" target="_blank" rel="noreferrer"><strong>Yahoo 津波情報</strong><span>詳しく見る ↗</span></a>
-        <a class="button" href="https://www.jma.go.jp/bosai/map.html#contents=tsunami" target="_blank" rel="noreferrer"><strong>気象庁 津波警報・注意報</strong><span>詳しく見る ↗</span></a>
-      </div>
-    </section>
-
-    <!-- 花粉 -->
-    <section class="panel" id="panel-pollen" role="tabpanel" hidden>
-      <div class="card">
-        <h2>今日の花粉 (Weathernews ポールンロボ観測)</h2>
-        <div class="status" id="pollenStatus">読み込み中…</div>
-        <div class="pollen-now" id="pollenNow" hidden>
-          <div>
-            <div class="pollen-value"><span id="pollenValue">--</span><small> 個/時</small></div>
-            <div class="fineprint" id="pollenWhen"></div>
-          </div>
-          <span class="pollen-level" id="pollenLevel"></span>
-          <div class="chips" id="pollenChips"></div>
+      <div class="more-section" id="more-quake">
+        <div class="card">
+          <h2>最近の地震 (気象庁発表)</h2>
+          <div class="status" id="quakeStatus">読み込み中…</div>
+          <div class="list" id="quakeList"></div>
+        </div>
+        <div class="link-row">
+          <a class="button" href="https://typhoon.yahoo.co.jp/weather/jp/earthquake/" target="_blank" rel="noreferrer"><strong>Yahoo 地震情報</strong><span>詳しく見る ↗</span></a>
+          <a class="button" href="https://www.jma.go.jp/bosai/map.html#contents=earthquake_map" target="_blank" rel="noreferrer"><strong>気象庁 地震情報</strong><span>詳しく見る ↗</span></a>
         </div>
       </div>
-      <div class="card">
-        <h2>今日の推移</h2>
-        <div class="chart-scroll" id="pollenChart"></div>
+
+      <div class="more-section" id="more-tsunami" hidden>
+        <div class="banner" id="tsunamiBanner">確認中…</div>
+        <div class="card">
+          <h2>直近の津波関連情報 (気象庁発表・48時間以内)</h2>
+          <div class="status" id="tsunamiStatus">読み込み中…</div>
+          <div class="list" id="tsunamiList"></div>
+        </div>
+        <div class="link-row">
+          <a class="button" href="https://typhoon.yahoo.co.jp/weather/jp/tsunami/" target="_blank" rel="noreferrer"><strong>Yahoo 津波情報</strong><span>詳しく見る ↗</span></a>
+          <a class="button" href="https://www.jma.go.jp/bosai/map.html#contents=tsunami" target="_blank" rel="noreferrer"><strong>気象庁 津波警報・注意報</strong><span>詳しく見る ↗</span></a>
+        </div>
       </div>
-      <div class="link-row">
-        <a class="button" href="https://weathernews.jp/s/pollen/" target="_blank" rel="noreferrer"><strong>Weathernews 花粉Ch.</strong><span>詳しく見る ↗</span></a>
-        <a class="button" href="https://tenki.jp/pollen/" target="_blank" rel="noreferrer"><strong>tenki.jp 花粉情報</strong><span>詳しく見る ↗</span></a>
+
+      <div class="more-section" id="more-pollen" hidden>
+        <div class="card">
+          <h2>今日の花粉 (Weathernews ポールンロボ観測)</h2>
+          <div class="status" id="pollenStatus">読み込み中…</div>
+          <div class="pollen-now" id="pollenNow" hidden>
+            <div>
+              <div class="pollen-value"><span id="pollenValue">--</span><small> 個/時</small></div>
+              <div class="fineprint" id="pollenWhen"></div>
+            </div>
+            <span class="pollen-level" id="pollenLevel"></span>
+            <div class="chips" id="pollenChips"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>今日の推移</h2>
+          <div class="chart-scroll" id="pollenChart"></div>
+        </div>
+        <div class="link-row">
+          <a class="button" href="https://weathernews.jp/s/pollen/" target="_blank" rel="noreferrer"><strong>Weathernews 花粉Ch.</strong><span>詳しく見る ↗</span></a>
+          <a class="button" href="https://tenki.jp/pollen/" target="_blank" rel="noreferrer"><strong>tenki.jp 花粉情報</strong><span>詳しく見る ↗</span></a>
+        </div>
+        <p class="fineprint">スギ・ヒノキ花粉シーズン (概ね2月〜6月) 以外の観測値は参考値です。</p>
       </div>
-      <p class="fineprint">スギ・ヒノキ花粉シーズン (概ね2月〜6月) 以外の観測値は参考値です。</p>
     </section>
 
     <!-- 情報 -->
@@ -1140,6 +1191,7 @@
       location: { name: "東京 (千代田区)", latitude: 35.6812, longitude: 139.7671 },
       fromGeolocation: false,
       tab: "weather",
+      moreTab: "quake",
       favorites: []
     };
 
@@ -1148,7 +1200,7 @@
 
     const $ = (id) => document.getElementById(id);
     const FRESH_MS = 5 * 60 * 1000;
-    const cache = { walk: 0, weather: 0, quake: 0, tsunami: 0, pollen: 0, radar: 0, about: 0 };
+    const cache = { walk: 0, weather: 0, quake: 0, tsunami: 0, pollen: 0, radar: 0, more: 0, about: 0 };
     let weatherSeq = 0;
     let pollenSeq = 0;
 
@@ -1161,6 +1213,16 @@
         }
         if (!Array.isArray(merged.favorites)) {
           merged.favorites = [];
+        }
+        if (["quake", "tsunami", "pollen"].includes(merged.tab)) {
+          merged.moreTab = merged.tab;
+          merged.tab = "more";
+        }
+        if (!["walk", "weather", "radar", "more", "about"].includes(merged.tab)) {
+          merged.tab = defaults.tab;
+        }
+        if (!["quake", "tsunami", "pollen"].includes(merged.moreTab)) {
+          merged.moreTab = defaults.moreTab;
         }
         return merged;
       } catch {
@@ -1761,6 +1823,10 @@
       return String(maxi).replace("-", "弱").replace("+", "強");
     }
 
+    function updateMoreNavDot() {
+      $("navDotMore").hidden = $("quakeAlert").hidden && $("tsunamiAlert").hidden;
+    }
+
     async function loadQuakes() {
       const status = $("quakeStatus");
       status.className = "status";
@@ -1800,11 +1866,10 @@
           const label = `震度${intensityLabel(top.maxi)}`;
           pill.textContent = `⚠ 地震 ${label} (1時間以内)`;
           pill.hidden = false;
-          $("navDotQuake").hidden = false;
         } else {
           pill.hidden = true;
-          $("navDotQuake").hidden = true;
         }
+        updateMoreNavDot();
       } catch {
         status.className = "status error";
         status.textContent = "地震情報を取得できませんでした。↻ 更新で再試行してください。";
@@ -1839,15 +1904,14 @@
           banner.textContent = "⚠ 津波警報・注意報に関する発表があります。沿岸部では最新情報を確認してください。";
           pill.textContent = "⚠ 津波情報 発表中";
           pill.hidden = false;
-          $("navDotTsunami").hidden = false;
         } else {
           banner.className = "banner ok";
           banner.textContent = recent.length
             ? "現在、大津波警報・津波警報・津波注意報の発表はありません (若干の海面変動などの情報があります)。"
             : "現在、津波警報・注意報・予報の発表はありません。";
           pill.hidden = true;
-          $("navDotTsunami").hidden = true;
         }
+        updateMoreNavDot();
 
         $("tsunamiList").innerHTML = recent.map((t) => {
           const kinds = [...new Set((t.kind || []).map((k) => k.kind).filter(Boolean))];
@@ -2252,12 +2316,33 @@
       cache.about = Date.now();
     }
 
-    const loaders = { walk: loadWalk, weather: loadWeatherAll, radar: loadRadar, quake: loadQuakes, tsunami: loadTsunami, pollen: loadPollen, about: loadAbout };
+    function renderMoreTabs() {
+      document.querySelectorAll("[data-more-tab]").forEach((button) => {
+        button.setAttribute("aria-selected", String(button.dataset.moreTab === state.moreTab));
+      });
+      document.querySelectorAll(".more-section").forEach((section) => {
+        section.hidden = section.id !== `more-${state.moreTab}`;
+      });
+    }
+
+    function loadMoreTab(tab, force) {
+      if (tab === "quake" && (force || Date.now() - cache.quake > FRESH_MS)) loadQuakes();
+      if (tab === "tsunami" && (force || Date.now() - cache.tsunami > FRESH_MS)) loadTsunami();
+      if (tab === "pollen" && (force || Date.now() - cache.pollen > FRESH_MS)) loadPollen();
+      cache.more = Date.now();
+    }
+
+    function loadMore(force) {
+      renderMoreTabs();
+      loadMoreTab(state.moreTab, force);
+    }
+
+    const loaders = { walk: loadWalk, weather: loadWeatherAll, radar: loadRadar, more: loadMore, about: loadAbout };
 
     function loadTab(tab, force) {
       const loader = loaders[tab];
       if (!loader) return;
-      if (force || Date.now() - cache[tab] > FRESH_MS) loader();
+      if (force || Date.now() - cache[tab] > FRESH_MS) loader(force);
     }
 
     function switchTab(tab) {
@@ -2274,11 +2359,26 @@
       loadTab(tab, false);
     }
 
+    function switchMoreTab(tab) {
+      if (!["quake", "tsunami", "pollen"].includes(tab)) return;
+      state.moreTab = tab;
+      if (state.tab !== "more") {
+        switchTab("more");
+        return;
+      }
+      saveSettings();
+      renderMoreTabs();
+      loadMoreTab(tab, false);
+    }
+
     document.querySelectorAll(".nav-item").forEach((button) => {
       button.addEventListener("click", () => switchTab(button.dataset.tab));
     });
-    $("quakeAlert").addEventListener("click", () => switchTab("quake"));
-    $("tsunamiAlert").addEventListener("click", () => switchTab("tsunami"));
+    document.querySelectorAll("[data-more-tab]").forEach((button) => {
+      button.addEventListener("click", () => switchMoreTab(button.dataset.moreTab));
+    });
+    $("quakeAlert").addEventListener("click", () => switchMoreTab("quake"));
+    $("tsunamiAlert").addEventListener("click", () => switchMoreTab("tsunami"));
 
     $("favSelect").addEventListener("change", () => {
       const fav = state.favorites.find((f) => favKey(f) === $("favSelect").value);
@@ -2329,8 +2429,8 @@
     $("reloadAll").addEventListener("click", () => {
       loadTab(state.tab, true);
       // バッジ用に地震・津波は裏でも更新しておく
-      if (state.tab !== "quake") loadQuakes();
-      if (state.tab !== "tsunami") loadTsunami();
+      if (state.tab !== "more" || state.moreTab !== "quake") loadQuakes();
+      if (state.tab !== "more" || state.moreTab !== "tsunami") loadTsunami();
     });
 
     function updateClock() {
