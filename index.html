@@ -966,7 +966,15 @@
       }
 
       .more-nav-wrap {
+        display: flex;
+        width: 100%;
         min-width: 0;
+      }
+
+      .more-nav-wrap .nav-item {
+        width: 100%;
+        flex: 1 1 auto;
+        justify-content: center;
       }
 
       .more-nav-menu {
@@ -1276,8 +1284,6 @@
         if (!["quake", "tsunami", "pollen"].includes(merged.moreTab)) {
           merged.moreTab = defaults.moreTab;
         }
-        // Start each app session with earthquakes selected in the combined tab.
-        merged.moreTab = defaults.moreTab;
         return merged;
       } catch {
         return { ...defaults };
