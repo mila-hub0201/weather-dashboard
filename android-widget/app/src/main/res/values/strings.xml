@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">天気チェック</string>
+    <string name="widget_name">24時間天気</string>
+    <string name="widget_description">気温と降水確率を4時間ずつ確認できます</string>
+    <string name="widget_placeholder_location">東京 (千代田区)</string>
+    <string name="widget_placeholder_updated">更新 --:--</string>
+    <string name="widget_placeholder_page">1 / 6</string>
+    <string name="widget_placeholder_time">12時</string>
+    <string name="widget_placeholder_temperature">25°</string>
+    <string name="widget_placeholder_pop">20%</string>
+    <string name="widget_preview_hours" formatted="false">12時  晴 25°  20%\n13時  曇 26°  30%</string>
+    <string name="widget_preview_page">‹   1 / 6   ›</string>
+    <string name="widget_location_title">ウィジェットの地域</string>
+    <string name="widget_location_body">現在地を使うか、既定の東京を選んでください。後からウィジェット設定で変更できます。</string>
+    <string name="use_current_location">現在地を使う</string>
+    <string name="use_tokyo">東京を使う</string>
+    <string name="location_fetching">現在地を確認しています…</string>
+    <string name="location_permission_needed">現在地の利用を許可してください</string>
+    <string name="location_unavailable">現在地を取得できませんでした</string>
+    <string name="current_location_name">現在地</string>
+    <string name="refresh_forecast">24時間予報を更新</string>
+    <string name="previous_hours">前の4時間</string>
+    <string name="next_hours">次の4時間</string>
+</resources>

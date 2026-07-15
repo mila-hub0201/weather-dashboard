@@ -1431,6 +1431,7 @@
 
     const storageKey = "weather-dashboard-settings-v2";
     const state = loadSettings();
+    applyLaunchParameters(state);
 
     const $ = (id) => document.getElementById(id);
     const FRESH_MS = 5 * 60 * 1000;
@@ -1464,8 +1465,41 @@
       }
     }
 
+    function applyLaunchParameters(target) {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (["walk", "weather", "radar", "more", "about"].includes(tab)) {
+        target.tab = tab;
+      }
+
+      if (!params.has("lat") || !params.has("lon")) return;
+      const latitude = Number(params.get("lat"));
+      const longitude = Number(params.get("lon"));
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return;
+      if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return;
+      const requestedName = (params.get("name") || "現在地").trim().slice(0, 40);
+      target.location = {
+        name: requestedName || "現在地",
+        latitude,
+        longitude
+      };
+      target.fromGeolocation = true;
+    }
+
     function saveSettings() {
       localStorage.setItem(storageKey, JSON.stringify(state));
+      const bridge = window.WeatherWidget;
+      if (bridge && typeof bridge.setLocation === "function") {
+        try {
+          bridge.setLocation(
+            state.location.name,
+            state.location.latitude,
+            state.location.longitude
+          );
+        } catch {
+          // Androidウィジェット連携が使えなくてもWebアプリは通常どおり動かす
+        }
+      }
     }
 
     function escapeHtml(text) {

@@ -1,7 +1,7 @@
 "use strict";
 
 // キャッシュを更新したいときはこのバージョンを上げる
-const CACHE_NAME = "weather-dashboard-v4";
+const CACHE_NAME = "weather-dashboard-v5";
 
 const APP_SHELL = [
   "./",

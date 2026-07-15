@@ -1,0 +1,32 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "jp.milahub.weatherwidget"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "jp.milahub.weatherwidget"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+
+        buildConfigField "String", "WEB_APP_URL", '"https://mila-hub0201.github.io/weather-dashboard/"'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}

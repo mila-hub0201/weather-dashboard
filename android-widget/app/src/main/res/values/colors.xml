@@ -1,0 +1,16 @@
+<resources>
+    <color name="widget_background">#F8FAFC</color>
+    <color name="widget_surface">#FFFFFF</color>
+    <color name="widget_text">#17212B</color>
+    <color name="widget_muted">#52606D</color>
+    <color name="widget_blue">#126FAE</color>
+    <color name="widget_blue_soft">#E5F3FC</color>
+    <color name="system_bar_blue">#B8E1F4</color>
+    <color name="widget_border">#D9E2EC</color>
+    <color name="weather_clear_surface">#FFF6D9</color>
+    <color name="weather_cloud_surface">#EDF2F6</color>
+    <color name="weather_rain_surface">#E3F3FC</color>
+    <color name="weather_snow_surface">#E8F8FA</color>
+    <color name="weather_thunder_surface">#FFF0D8</color>
+    <color name="weather_fog_surface">#EFF2F2</color>
+</resources>
