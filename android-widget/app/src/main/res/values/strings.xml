@@ -1,19 +1,20 @@
 <resources>
     <string name="app_name">天気チェック</string>
     <string name="widget_name">24時間天気</string>
-    <string name="widget_description">気温と降水確率を4時間ずつ確認できます</string>
+    <string name="widget_description">天気、気温の折れ線、降水量の棒グラフを4時間ずつ確認できます</string>
+    <string name="widget_chart_description">4時間分の天気、気温、降水量グラフ</string>
     <string name="widget_placeholder_location">東京 (千代田区)</string>
     <string name="widget_placeholder_updated">更新 --:--</string>
     <string name="widget_placeholder_page">1 / 6</string>
-    <string name="widget_placeholder_time">12時</string>
-    <string name="widget_placeholder_temperature">25°</string>
-    <string name="widget_placeholder_pop">20%</string>
-    <string name="widget_preview_hours" formatted="false">12時  晴 25°  20%\n13時  曇 26°  30%</string>
+    <string name="widget_preview_times">12時　13時　14時　15時</string>
     <string name="widget_preview_page">‹   1 / 6   ›</string>
     <string name="widget_location_title">ウィジェットの地域</string>
-    <string name="widget_location_body">現在地を使うか、既定の東京を選んでください。後からウィジェット設定で変更できます。</string>
+    <string name="widget_location_body">現在地、既定の東京、アプリのお気に入り地域から選べます。</string>
     <string name="use_current_location">現在地を使う</string>
     <string name="use_tokyo">東京を使う</string>
+    <string name="favorite_location_title">お気に入り地域</string>
+    <string name="favorite_location_empty">お気に入り地域はまだありません</string>
+    <string name="use_selected_favorite">選択した地域を使う</string>
     <string name="location_fetching">現在地を確認しています…</string>
     <string name="location_permission_needed">現在地の利用を許可してください</string>
     <string name="location_unavailable">現在地を取得できませんでした</string>

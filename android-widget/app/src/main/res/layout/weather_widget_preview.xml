@@ -5,25 +5,66 @@
     android:background="@drawable/widget_background"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="8dp">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/widget_placeholder_location"
         android:textColor="@color/widget_text"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="22dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_weight="1"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_weather_clear_day" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_weight="1"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_weather_partly_cloudy" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_weight="1"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_weather_rain" />
+
+        <ImageView
+            android:layout_width="0dp"
+            android:layout_height="20dp"
+            android:layout_weight="1"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_weather_cloudy" />
+    </LinearLayout>
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:contentDescription="@null"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_chart_preview_graph" />
 
     <TextView
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1"
+        android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="@string/widget_preview_hours"
-        android:textColor="@color/widget_text"
-        android:textSize="14sp" />
+        android:text="@string/widget_preview_times"
+        android:textColor="@color/widget_muted"
+        android:textSize="10sp" />
 
     <TextView
         android:layout_width="match_parent"
@@ -31,5 +72,5 @@
         android:gravity="center"
         android:text="@string/widget_preview_page"
         android:textColor="@color/widget_blue"
-        android:textSize="14sp" />
+        android:textSize="11sp" />
 </LinearLayout>

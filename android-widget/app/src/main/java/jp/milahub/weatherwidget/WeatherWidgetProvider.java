@@ -23,7 +23,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     private static final String EXTRA_DELTA = "delta";
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final ZoneId JAPAN = ZoneId.of("Asia/Tokyo");
-    private static final DateTimeFormatter UPDATE_TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.JAPAN);
+    private static final DateTimeFormatter UPDATE_TIME = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.JAPAN);
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
@@ -51,8 +51,16 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
             return;
         }
         if (ACTION_REFRESH.equals(action)) {
-            int[] appWidgetIds = allWidgetIds(context);
+            int requestedWidgetId = intent.getIntExtra(
+                    AppWidgetManager.EXTRA_APPWIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID
+            );
+            int[] appWidgetIds = requestedWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID
+                    ? allWidgetIds(context)
+                    : new int[]{requestedWidgetId};
+            WidgetStore store = new WidgetStore(context);
             for (int appWidgetId : appWidgetIds) {
+                store.setPage(appWidgetId, 0);
                 renderCached(context, appWidgetId, true, false);
             }
             startForecastUpdate(context, appWidgetIds, goAsync());
@@ -124,38 +132,18 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         views.setTextViewText(R.id.widget_updated, updateLabel(store.getUpdatedAt(), updating, updateFailed));
         views.setBoolean(R.id.widget_previous, "setEnabled", page > 0);
         views.setBoolean(R.id.widget_next, "setEnabled", page < WidgetStore.TOTAL_PAGES - 1);
-        views.removeAllViews(R.id.widget_hours);
+        views.setImageViewBitmap(
+                R.id.widget_chart,
+                WidgetChartRenderer.render(context, forecast, start, updateFailed)
+        );
+        views.setContentDescription(
+                R.id.widget_chart,
+                chartDescription(forecast, start, updateFailed)
+        );
 
-        for (int slot = 0; slot < WidgetStore.HOURS_PER_PAGE; slot++) {
-            int index = start + slot;
-            RemoteViews hourView = new RemoteViews(context.getPackageName(), R.layout.widget_hour);
-            if (index < forecast.size()) {
-                ForecastHour hour = forecast.get(index);
-                hourView.setTextViewText(R.id.hour_time, hourLabel(hour.time));
-                hourView.setImageViewResource(R.id.hour_icon, weatherIcon(hour));
-                hourView.setTextViewText(R.id.hour_temp, hour.temperature + "°");
-                hourView.setTextViewText(R.id.hour_pop, hour.precipitationProbability + "%");
-                hourView.setInt(
-                        R.id.hour_card,
-                        "setBackgroundResource",
-                        weatherBackground(hour.weatherCode)
-                );
-                hourView.setContentDescription(
-                        R.id.hour_card,
-                        hourLabel(hour.time) + " " + weatherLabel(hour.weatherCode)
-                                + " " + hour.temperature + "度 降水確率"
-                                + hour.precipitationProbability + "パーセント"
-                );
-            } else {
-                hourView.setTextViewText(R.id.hour_time, "--");
-                hourView.setImageViewResource(R.id.hour_icon, R.drawable.ic_weather_unknown);
-                hourView.setTextViewText(R.id.hour_temp, updateFailed ? "失敗" : "取得中");
-                hourView.setTextViewText(R.id.hour_pop, "--%");
-            }
-            views.addView(R.id.widget_hours, hourView);
-        }
-
-        views.setOnClickPendingIntent(R.id.widget_root, openAppIntent(context, appWidgetId));
+        PendingIntent openApp = openAppIntent(context, appWidgetId);
+        views.setOnClickPendingIntent(R.id.widget_location, openApp);
+        views.setOnClickPendingIntent(R.id.widget_chart, openApp);
         views.setOnClickPendingIntent(R.id.widget_previous, pageIntent(context, appWidgetId, -1, 1));
         views.setOnClickPendingIntent(R.id.widget_next, pageIntent(context, appWidgetId, 1, 2));
         views.setOnClickPendingIntent(R.id.widget_refresh, refreshIntent(context, appWidgetId));
@@ -188,7 +176,9 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     }
 
     private static PendingIntent refreshIntent(Context context, int appWidgetId) {
-        Intent refresh = new Intent(context, WeatherWidgetProvider.class).setAction(ACTION_REFRESH);
+        Intent refresh = new Intent(context, WeatherWidgetProvider.class)
+                .setAction(ACTION_REFRESH)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         return PendingIntent.getBroadcast(
                 context,
                 appWidgetId * 10 + 3,
@@ -211,7 +201,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         );
     }
 
-    private static String hourLabel(String time) {
+    static String hourLabel(String time) {
         try {
             LocalDateTime value = LocalDateTime.parse(time);
             LocalDate today = LocalDate.now(JAPAN);
@@ -223,7 +213,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static String weatherLabel(int code) {
+    static String weatherLabel(int code) {
         if (code == 0) return "晴";
         if (code == 1 || code == 2) return "晴曇";
         if (code == 3) return "曇";
@@ -234,7 +224,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         return "--";
     }
 
-    private static int weatherIcon(ForecastHour hour) {
+    static int weatherIcon(ForecastHour hour) {
         int code = hour.weatherCode;
         if (code == 0) return isNight(hour.time)
                 ? R.drawable.ic_weather_clear_night
@@ -252,20 +242,6 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         return R.drawable.ic_weather_unknown;
     }
 
-    private static int weatherBackground(int code) {
-        if (code == 0 || code == 1 || code == 2) return R.drawable.hour_background_clear;
-        if (code == 3) return R.drawable.hour_background_cloudy;
-        if (code == 45 || code == 48) return R.drawable.hour_background_fog;
-        if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-            return R.drawable.hour_background_rain;
-        }
-        if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
-            return R.drawable.hour_background_snow;
-        }
-        if (code >= 95) return R.drawable.hour_background_thunder;
-        return R.drawable.hour_background_cloudy;
-    }
-
     private static boolean isNight(String time) {
         try {
             int hour = LocalDateTime.parse(time).getHour();
@@ -273,5 +249,28 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static String chartDescription(
+            List<ForecastHour> forecast,
+            int start,
+            boolean updateFailed
+    ) {
+        if (forecast.isEmpty()) return updateFailed ? "予報の更新に失敗しました" : "予報を取得中です";
+        StringBuilder description = new StringBuilder();
+        for (int slot = 0; slot < WidgetStore.HOURS_PER_PAGE; slot++) {
+            int index = start + slot;
+            if (index >= forecast.size()) break;
+            ForecastHour hour = forecast.get(index);
+            if (description.length() > 0) description.append("、");
+            description.append(hourLabel(hour.time))
+                    .append(" ")
+                    .append(weatherLabel(hour.weatherCode))
+                    .append(" ")
+                    .append(hour.temperature)
+                    .append("度 降水量")
+                    .append(WidgetChartRenderer.formatPrecipitation(hour.precipitation));
+        }
+        return description.toString();
     }
 }

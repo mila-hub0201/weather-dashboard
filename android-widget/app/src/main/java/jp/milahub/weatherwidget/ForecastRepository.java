@@ -23,7 +23,7 @@ final class ForecastRepository {
         String endpoint = String.format(
                 Locale.US,
                 "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
-                        + "&hourly=temperature_2m,precipitation_probability,weather_code"
+                        + "&hourly=temperature_2m,precipitation_probability,precipitation,weather_code"
                         + "&timezone=Asia%%2FTokyo&forecast_days=3",
                 latitude,
                 longitude
@@ -31,7 +31,9 @@ final class ForecastRepository {
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
         connection.setConnectTimeout(10_000);
         connection.setReadTimeout(15_000);
+        connection.setUseCaches(false);
         connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("Cache-Control", "no-cache");
         connection.setRequestProperty("User-Agent", "WeatherDashboardWidget/1.0");
         try {
             int status = connection.getResponseCode();
@@ -49,6 +51,7 @@ final class ForecastRepository {
         JSONArray times = hourly.getJSONArray("time");
         JSONArray temperatures = hourly.getJSONArray("temperature_2m");
         JSONArray probabilities = hourly.getJSONArray("precipitation_probability");
+        JSONArray precipitation = hourly.getJSONArray("precipitation");
         JSONArray weatherCodes = hourly.getJSONArray("weather_code");
 
         LocalDateTime currentHour = LocalDateTime.now(JAPAN)
@@ -66,7 +69,10 @@ final class ForecastRepository {
 
         int available = Math.min(
                 Math.min(times.length(), temperatures.length()),
-                Math.min(probabilities.length(), weatherCodes.length())
+                Math.min(
+                        probabilities.length(),
+                        Math.min(precipitation.length(), weatherCodes.length())
+                )
         );
         List<ForecastHour> result = new ArrayList<>(24);
         for (int i = start; i < available && result.size() < 24; i++) {
@@ -74,6 +80,7 @@ final class ForecastRepository {
                     times.getString(i),
                     (int) Math.round(temperatures.optDouble(i, 0)),
                     probabilities.isNull(i) ? 0 : probabilities.optInt(i, 0),
+                    precipitation.isNull(i) ? 0 : precipitation.optDouble(i, 0),
                     weatherCodes.isNull(i) ? -1 : weatherCodes.optInt(i, -1)
             ));
         }

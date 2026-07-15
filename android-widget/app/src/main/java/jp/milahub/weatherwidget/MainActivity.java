@@ -36,6 +36,17 @@ public final class MainActivity extends Activity {
                     + "var s=document.createElement('style');s.id=id;"
                     + "s.textContent='@media(max-width:720px){.bottomnav{padding-bottom:8px!important}}';"
                     + "document.head.appendChild(s);})()";
+    private static final String NATIVE_FAVORITES_SYNC =
+            "(function(){var key='weather-dashboard-settings-v2';"
+                    + "function sync(){try{var s=JSON.parse(localStorage.getItem(key)||'{}');"
+                    + "if(window.WeatherWidget&&typeof WeatherWidget.setFavorites==='function')"
+                    + "WeatherWidget.setFavorites(JSON.stringify(Array.isArray(s.favorites)?s.favorites:[]));"
+                    + "}catch(e){}}sync();"
+                    + "if(window.__weatherWidgetFavoritesHook)return;"
+                    + "window.__weatherWidgetFavoritesHook=true;"
+                    + "var original=Storage.prototype.setItem;"
+                    + "Storage.prototype.setItem=function(k,v){original.call(this,k,v);"
+                    + "if(k===key)setTimeout(sync,0);};})()";
     private WebView webView;
     private String pendingOrigin;
     private GeolocationPermissions.Callback pendingLocationCallback;
@@ -235,6 +246,7 @@ public final class MainActivity extends Activity {
             if (!isDashboard) return;
 
             view.evaluateJavascript(NATIVE_INSETS_STYLE, null);
+            view.evaluateJavascript(NATIVE_FAVORITES_SYNC, null);
 
             if (!nativeStateSynced) {
                 nativeStateSynced = true;
@@ -271,6 +283,11 @@ public final class MainActivity extends Activity {
                     || Math.abs(store.getLongitude() - longitude) > 0.00005;
             store.setLocation(name, latitude, longitude);
             if (changed) WeatherWidgetProvider.requestRefresh(getApplicationContext());
+        }
+
+        @JavascriptInterface
+        public void setFavorites(String favoritesJson) {
+            new WidgetStore(getApplicationContext()).setFavoritesJson(favoritesJson);
         }
     }
 }

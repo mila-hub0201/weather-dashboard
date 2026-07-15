@@ -37,4 +37,37 @@
         android:layout_marginTop="12dp"
         android:text="@string/use_tokyo"
         android:textAllCaps="false" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="@string/favorite_location_title"
+        android:textColor="@color/widget_text"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <Spinner
+        android:id="@+id/favorite_locations"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="8dp" />
+
+    <Button
+        android:id="@+id/use_favorite_location"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/use_selected_favorite"
+        android:textAllCaps="false" />
+
+    <TextView
+        android:id="@+id/favorite_locations_empty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/favorite_location_empty"
+        android:textColor="@color/widget_muted"
+        android:textSize="14sp"
+        android:visibility="gone" />
 </LinearLayout>

@@ -8,8 +8,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 final class WidgetStore {
     static final String DEFAULT_NAME = "東京 (千代田区)";
@@ -25,6 +27,8 @@ final class WidgetStore {
     private static final String KEY_FORECAST = "forecast_json";
     private static final String KEY_FORECAST_LOCATION = "forecast_location";
     private static final String KEY_UPDATED = "forecast_updated";
+    private static final String KEY_FAVORITES = "favorite_locations";
+    private static final int MAX_FAVORITES = 12;
 
     private final SharedPreferences prefs;
 
@@ -74,6 +78,7 @@ final class WidgetStore {
                     .put("time", hour.time)
                     .put("temperature", hour.temperature)
                     .put("precipitationProbability", hour.precipitationProbability)
+                    .put("precipitation", hour.precipitation)
                     .put("weatherCode", hour.weatherCode));
         }
         prefs.edit()
@@ -97,6 +102,7 @@ final class WidgetStore {
                         item.getString("time"),
                         item.getInt("temperature"),
                         item.getInt("precipitationProbability"),
+                        item.optDouble("precipitation", 0),
                         item.getInt("weatherCode")
                 ));
             }
@@ -108,6 +114,53 @@ final class WidgetStore {
 
     long getUpdatedAt() {
         return prefs.getLong(KEY_UPDATED, 0L);
+    }
+
+    void setFavoritesJson(String favoritesJson) {
+        try {
+            JSONArray source = new JSONArray(favoritesJson == null ? "[]" : favoritesJson);
+            JSONArray safeFavorites = new JSONArray();
+            Set<String> seen = new HashSet<>();
+            for (int i = 0; i < source.length() && safeFavorites.length() < MAX_FAVORITES; i++) {
+                JSONObject item = source.optJSONObject(i);
+                if (item == null) continue;
+                double latitude = item.optDouble("latitude", Double.NaN);
+                double longitude = item.optDouble("longitude", Double.NaN);
+                if (!isValidLocation(latitude, longitude)) continue;
+                String key = locationKey(latitude, longitude);
+                if (!seen.add(key)) continue;
+                String name = sanitizeName(item.optString("name", "お気に入り"));
+                safeFavorites.put(new JSONObject()
+                        .put("name", name)
+                        .put("latitude", latitude)
+                        .put("longitude", longitude));
+            }
+            prefs.edit().putString(KEY_FAVORITES, safeFavorites.toString()).apply();
+        } catch (JSONException ignored) {
+            // Keep the last valid favorites when malformed data reaches the bridge.
+        }
+    }
+
+    List<SavedLocation> getFavorites() {
+        List<SavedLocation> favorites = new ArrayList<>();
+        try {
+            JSONArray items = new JSONArray(prefs.getString(KEY_FAVORITES, "[]"));
+            for (int i = 0; i < items.length(); i++) {
+                JSONObject item = items.optJSONObject(i);
+                if (item == null) continue;
+                double latitude = item.optDouble("latitude", Double.NaN);
+                double longitude = item.optDouble("longitude", Double.NaN);
+                if (!isValidLocation(latitude, longitude)) continue;
+                favorites.add(new SavedLocation(
+                        sanitizeName(item.optString("name", "お気に入り")),
+                        latitude,
+                        longitude
+                ));
+            }
+        } catch (JSONException ignored) {
+            favorites.clear();
+        }
+        return favorites;
     }
 
     int getPage(int appWidgetId) {
@@ -146,5 +199,10 @@ final class WidgetStore {
                 && latitude <= 90
                 && longitude >= -180
                 && longitude <= 180;
+    }
+
+    private static String sanitizeName(String name) {
+        String safeName = name == null || name.trim().isEmpty() ? "お気に入り" : name.trim();
+        return safeName.length() > 40 ? safeName.substring(0, 40) : safeName;
     }
 }

@@ -1489,13 +1489,18 @@
     function saveSettings() {
       localStorage.setItem(storageKey, JSON.stringify(state));
       const bridge = window.WeatherWidget;
-      if (bridge && typeof bridge.setLocation === "function") {
+      if (bridge) {
         try {
-          bridge.setLocation(
-            state.location.name,
-            state.location.latitude,
-            state.location.longitude
-          );
+          if (typeof bridge.setLocation === "function") {
+            bridge.setLocation(
+              state.location.name,
+              state.location.latitude,
+              state.location.longitude
+            );
+          }
+          if (typeof bridge.setFavorites === "function") {
+            bridge.setFavorites(JSON.stringify(state.favorites));
+          }
         } catch {
           // Androidウィジェット連携が使えなくてもWebアプリは通常どおり動かす
         }

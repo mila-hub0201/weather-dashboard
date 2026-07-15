@@ -13,7 +13,10 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.util.List;
@@ -25,6 +28,8 @@ public final class WidgetConfigActivity extends Activity {
     private int appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
     private TextView status;
     private Button currentLocationButton;
+    private Spinner favoritesSpinner;
+    private List<SavedLocation> favoriteLocations;
     private boolean locationCompleted;
     private Location fallbackLocation;
 
@@ -54,6 +59,37 @@ public final class WidgetConfigActivity extends Activity {
             );
             finishConfiguration();
         });
+
+        favoritesSpinner = findViewById(R.id.favorite_locations);
+        Button favoriteButton = findViewById(R.id.use_favorite_location);
+        TextView favoritesEmpty = findViewById(R.id.favorite_locations_empty);
+        favoriteLocations = new WidgetStore(this).getFavorites();
+        if (favoriteLocations.isEmpty()) {
+            favoritesSpinner.setVisibility(View.GONE);
+            favoriteButton.setVisibility(View.GONE);
+            favoritesEmpty.setVisibility(View.VISIBLE);
+        } else {
+            String[] names = new String[favoriteLocations.size()];
+            for (int i = 0; i < favoriteLocations.size(); i++) {
+                names[i] = favoriteLocations.get(i).name;
+            }
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                    this,
+                    android.R.layout.simple_spinner_item,
+                    names
+            );
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            favoritesSpinner.setAdapter(adapter);
+            favoriteButton.setOnClickListener(view -> useSelectedFavorite());
+        }
+    }
+
+    private void useSelectedFavorite() {
+        int position = favoritesSpinner.getSelectedItemPosition();
+        if (position < 0 || position >= favoriteLocations.size()) return;
+        SavedLocation selected = favoriteLocations.get(position);
+        new WidgetStore(this).setLocation(selected.name, selected.latitude, selected.longitude);
+        finishConfiguration();
     }
 
     private void requestCurrentLocation() {
