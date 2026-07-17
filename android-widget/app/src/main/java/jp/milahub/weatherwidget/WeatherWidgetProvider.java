@@ -14,28 +14,30 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public final class WeatherWidgetProvider extends AppWidgetProvider {
     private static final String ACTION_PAGE = "jp.milahub.weatherwidget.PAGE";
     private static final String ACTION_REFRESH = "jp.milahub.weatherwidget.REFRESH";
     private static final String EXTRA_DELTA = "delta";
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final ZoneId JAPAN = ZoneId.of("Asia/Tokyo");
     private static final DateTimeFormatter UPDATE_TIME = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.JAPAN);
+    private static final DateTimeFormatter UPDATE_DATE_TIME = DateTimeFormatter.ofPattern("M/d HH:mm", Locale.JAPAN);
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
-        for (int appWidgetId : appWidgetIds) {
-            renderCached(context, appWidgetId, true, false);
-        }
-        startForecastUpdate(context, appWidgetIds, goAsync());
+        WeatherUpdateJobService.ensurePeriodic(context);
+        beginRefresh(context, appWidgetIds, false);
     }
 
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
+        if (Intent.ACTION_BOOT_COMPLETED.equals(action)
+                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
+            WeatherUpdateJobService.ensurePeriodic(context);
+            beginRefresh(context, allWidgetIds(context), false);
+            return;
+        }
         if (ACTION_PAGE.equals(action)) {
             int appWidgetId = intent.getIntExtra(
                     AppWidgetManager.EXTRA_APPWIDGET_ID,
@@ -58,15 +60,20 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
             int[] appWidgetIds = requestedWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID
                     ? allWidgetIds(context)
                     : new int[]{requestedWidgetId};
-            WidgetStore store = new WidgetStore(context);
-            for (int appWidgetId : appWidgetIds) {
-                store.setPage(appWidgetId, 0);
-                renderCached(context, appWidgetId, true, false);
-            }
-            startForecastUpdate(context, appWidgetIds, goAsync());
+            beginRefresh(context, appWidgetIds, true);
             return;
         }
         super.onReceive(context, intent);
+    }
+
+    @Override
+    public void onEnabled(Context context) {
+        WeatherUpdateJobService.ensurePeriodic(context);
+    }
+
+    @Override
+    public void onDisabled(Context context) {
+        WeatherUpdateJobService.cancelAll(context);
     }
 
     @Override
@@ -76,14 +83,18 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     }
 
     static void requestRefresh(Context context) {
-        if (allWidgetIds(context).length == 0) return;
-        Intent refresh = new Intent(context, WeatherWidgetProvider.class).setAction(ACTION_REFRESH);
-        context.sendBroadcast(refresh);
+        beginRefresh(context, allWidgetIds(context), true);
     }
 
     static void redrawWidgets(Context context) {
         for (int appWidgetId : allWidgetIds(context)) {
             renderCached(context, appWidgetId, false, false);
+        }
+    }
+
+    static void renderAll(Context context, boolean updating, boolean updateFailed) {
+        for (int appWidgetId : allWidgetIds(context)) {
+            renderCached(context, appWidgetId, updating, updateFailed);
         }
     }
 
@@ -94,25 +105,20 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views);
     }
 
-    private static void startForecastUpdate(Context context, int[] appWidgetIds, PendingResult pendingResult) {
-        Context appContext = context.getApplicationContext();
-        EXECUTOR.execute(() -> {
-            boolean failed = false;
-            try {
-                WidgetStore store = new WidgetStore(appContext);
-                List<ForecastHour> forecast = new ForecastRepository().fetch(
-                        store.getLatitude(),
-                        store.getLongitude()
-                );
-                store.saveForecast(forecast, System.currentTimeMillis());
-            } catch (Exception ignored) {
-                failed = true;
-            }
+    private static void beginRefresh(Context context, int[] appWidgetIds, boolean resetPages) {
+        if (appWidgetIds.length == 0) return;
+        WidgetStore store = new WidgetStore(context);
+        store.markUpdateStarted(System.currentTimeMillis());
+        for (int appWidgetId : appWidgetIds) {
+            if (resetPages) store.setPage(appWidgetId, 0);
+            renderCached(context, appWidgetId, true, false);
+        }
+        if (!WeatherUpdateJobService.enqueueImmediate(context)) {
+            store.markUpdateFailed(System.currentTimeMillis(), "Android rejected update job");
             for (int appWidgetId : appWidgetIds) {
-                renderCached(appContext, appWidgetId, false, failed);
+                renderCached(context, appWidgetId, false, true);
             }
-            pendingResult.finish();
-        });
+        }
     }
 
     private static RemoteViews buildViews(
@@ -126,19 +132,23 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.weather_widget);
         int page = store.getPage(appWidgetId);
         int start = page * WidgetStore.HOURS_PER_PAGE;
+        boolean failed = updateFailed || store.hasUpdateError();
 
         views.setTextViewText(R.id.widget_location, store.getLocationName());
         views.setTextViewText(R.id.widget_page, (page + 1) + " / " + WidgetStore.TOTAL_PAGES);
-        views.setTextViewText(R.id.widget_updated, updateLabel(store.getUpdatedAt(), updating, updateFailed));
+        views.setTextViewText(
+                R.id.widget_updated,
+                updateLabel(store.getUpdatedAt(), store.getLastAttemptAt(), updating, failed)
+        );
         views.setBoolean(R.id.widget_previous, "setEnabled", page > 0);
         views.setBoolean(R.id.widget_next, "setEnabled", page < WidgetStore.TOTAL_PAGES - 1);
         views.setImageViewBitmap(
                 R.id.widget_chart,
-                WidgetChartRenderer.render(context, forecast, start, updateFailed)
+                WidgetChartRenderer.render(context, forecast, start, failed)
         );
         views.setContentDescription(
                 R.id.widget_chart,
-                chartDescription(forecast, start, updateFailed)
+                chartDescription(forecast, start, failed)
         );
 
         PendingIntent openApp = openAppIntent(context, appWidgetId);
@@ -187,18 +197,30 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         );
     }
 
-    private static int[] allWidgetIds(Context context) {
+    static int[] allWidgetIds(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         return manager.getAppWidgetIds(new ComponentName(context, WeatherWidgetProvider.class));
     }
 
-    private static String updateLabel(long updatedAt, boolean updating, boolean updateFailed) {
+    private static String updateLabel(
+            long updatedAt,
+            long lastAttemptAt,
+            boolean updating,
+            boolean updateFailed
+    ) {
         if (updating) return "更新中…";
-        if (updatedAt <= 0) return updateFailed ? "更新失敗" : "未更新";
-        String prefix = updateFailed ? "前回 " : "更新 ";
-        return prefix + UPDATE_TIME.format(
-                java.time.Instant.ofEpochMilli(updatedAt).atZone(JAPAN)
-        );
+        if (updateFailed) {
+            if (lastAttemptAt <= 0) return "更新失敗";
+            return "更新失敗 " + UPDATE_TIME.format(
+                    java.time.Instant.ofEpochMilli(lastAttemptAt).atZone(JAPAN)
+            );
+        }
+        if (updatedAt <= 0) return "未更新";
+        java.time.ZonedDateTime updated = java.time.Instant.ofEpochMilli(updatedAt).atZone(JAPAN);
+        DateTimeFormatter format = updated.toLocalDate().equals(LocalDate.now(JAPAN))
+                ? UPDATE_TIME
+                : UPDATE_DATE_TIME;
+        return "更新 " + format.format(updated);
     }
 
     static String hourLabel(String time) {

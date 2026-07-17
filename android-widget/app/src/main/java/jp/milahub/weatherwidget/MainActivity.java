@@ -85,6 +85,7 @@ public final class MainActivity extends Activity {
         configureSystemBars();
         root.requestApplyInsets();
         WeatherWidgetProvider.redrawWidgets(this);
+        WeatherUpdateJobService.ensurePeriodic(this);
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);

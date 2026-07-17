@@ -27,6 +27,8 @@ final class WidgetStore {
     private static final String KEY_FORECAST = "forecast_json";
     private static final String KEY_FORECAST_LOCATION = "forecast_location";
     private static final String KEY_UPDATED = "forecast_updated";
+    private static final String KEY_LAST_ATTEMPT = "forecast_last_attempt";
+    private static final String KEY_LAST_ERROR = "forecast_last_error";
     private static final String KEY_FAVORITES = "favorite_locations";
     private static final int MAX_FAVORITES = 12;
 
@@ -85,6 +87,8 @@ final class WidgetStore {
                 .putString(KEY_FORECAST, items.toString())
                 .putString(KEY_FORECAST_LOCATION, currentLocationKey())
                 .putLong(KEY_UPDATED, updatedAt)
+                .putLong(KEY_LAST_ATTEMPT, updatedAt)
+                .remove(KEY_LAST_ERROR)
                 .apply();
     }
 
@@ -114,6 +118,32 @@ final class WidgetStore {
 
     long getUpdatedAt() {
         return prefs.getLong(KEY_UPDATED, 0L);
+    }
+
+    long getLastAttemptAt() {
+        return prefs.getLong(KEY_LAST_ATTEMPT, 0L);
+    }
+
+    boolean hasUpdateError() {
+        return !prefs.getString(KEY_LAST_ERROR, "").isEmpty();
+    }
+
+    void markUpdateStarted(long attemptedAt) {
+        prefs.edit()
+                .putLong(KEY_LAST_ATTEMPT, attemptedAt)
+                .remove(KEY_LAST_ERROR)
+                .apply();
+    }
+
+    void markUpdateFailed(long attemptedAt, String error) {
+        String safeError = error == null || error.trim().isEmpty()
+                ? "Forecast update failed"
+                : error.trim();
+        if (safeError.length() > 160) safeError = safeError.substring(0, 160);
+        prefs.edit()
+                .putLong(KEY_LAST_ATTEMPT, attemptedAt)
+                .putString(KEY_LAST_ERROR, safeError)
+                .apply();
     }
 
     void setFavoritesJson(String favoritesJson) {
