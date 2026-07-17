@@ -108,10 +108,10 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     private static void beginRefresh(Context context, int[] appWidgetIds, boolean resetPages) {
         if (appWidgetIds.length == 0) return;
         WidgetStore store = new WidgetStore(context);
-        store.markUpdateStarted(System.currentTimeMillis());
         for (int appWidgetId : appWidgetIds) {
             if (resetPages) store.setPage(appWidgetId, 0);
-            renderCached(context, appWidgetId, true, false);
+            // Clear a stale transient label before Android starts the update job.
+            renderCached(context, appWidgetId, false, false);
         }
         if (!WeatherUpdateJobService.enqueueImmediate(context)) {
             store.markUpdateFailed(System.currentTimeMillis(), "Android rejected update job");

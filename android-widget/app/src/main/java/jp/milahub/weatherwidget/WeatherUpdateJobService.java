@@ -6,6 +6,8 @@ import android.app.job.JobScheduler;
 import android.app.job.JobService;
 import android.content.ComponentName;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import java.util.List;
@@ -18,18 +20,28 @@ public final class WeatherUpdateJobService extends JobService {
     static final int IMMEDIATE_JOB_ID = 41_202;
 
     private static final String TAG = "WeatherWidgetUpdate";
-    private static final long PERIODIC_INTERVAL_MS = 30 * 60 * 1000L;
-    private static final long PERIODIC_FLEX_MS = 10 * 60 * 1000L;
+    private static final long PERIODIC_INTERVAL_MS = 4 * 60 * 60 * 1000L;
+    private static final long PERIODIC_FLEX_MS = 30 * 60 * 1000L;
     private static final long IMMEDIATE_DEBOUNCE_MS = 5_000L;
+    private static final long JOB_TIMEOUT_MS = 35_000L;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final AtomicLong LAST_IMMEDIATE_ENQUEUE = new AtomicLong(0L);
 
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private JobParameters activeJob;
+    private Runnable timeoutTask;
 
     static void ensurePeriodic(Context context) {
         if (WeatherWidgetProvider.allWidgetIds(context).length == 0) return;
         JobScheduler scheduler = context.getSystemService(JobScheduler.class);
-        if (scheduler == null || scheduler.getPendingJob(PERIODIC_JOB_ID) != null) return;
+        if (scheduler == null) return;
+        JobInfo existing = scheduler.getPendingJob(PERIODIC_JOB_ID);
+        if (existing != null
+                && existing.isPeriodic()
+                && existing.getIntervalMillis() == PERIODIC_INTERVAL_MS) {
+            return;
+        }
+        if (existing != null) scheduler.cancel(PERIODIC_JOB_ID);
 
         JobInfo job = new JobInfo.Builder(
                 PERIODIC_JOB_ID,
@@ -93,6 +105,11 @@ public final class WeatherUpdateJobService extends JobService {
         WidgetStore store = new WidgetStore(this);
         store.markUpdateStarted(System.currentTimeMillis());
         WeatherWidgetProvider.renderAll(this, true, false);
+        Runnable timeout = () -> timeOutJob(params);
+        synchronized (this) {
+            if (activeJob == params) timeoutTask = timeout;
+        }
+        mainHandler.postDelayed(timeout, JOB_TIMEOUT_MS);
         Context appContext = getApplicationContext();
         EXECUTOR.execute(() -> runUpdate(appContext, params));
         return true;
@@ -100,9 +117,14 @@ public final class WeatherUpdateJobService extends JobService {
 
     @Override
     public boolean onStopJob(JobParameters params) {
+        Runnable timeout;
         synchronized (this) {
-            if (activeJob == params) activeJob = null;
+            if (activeJob != params) return false;
+            activeJob = null;
+            timeout = timeoutTask;
+            timeoutTask = null;
         }
+        if (timeout != null) mainHandler.removeCallbacks(timeout);
         WidgetStore store = new WidgetStore(this);
         store.markUpdateFailed(System.currentTimeMillis(), "Update interrupted by Android");
         WeatherWidgetProvider.renderAll(this, false, true);
@@ -110,28 +132,60 @@ public final class WeatherUpdateJobService extends JobService {
     }
 
     private void runUpdate(Context context, JobParameters params) {
-        boolean failed = false;
-        String failure = null;
+        List<ForecastHour> forecast;
         try {
             WidgetStore store = new WidgetStore(context);
-            List<ForecastHour> forecast = new ForecastRepository().fetch(
+            forecast = new ForecastRepository().fetch(
                     store.getLatitude(),
                     store.getLongitude()
             );
-            store.saveForecast(forecast, System.currentTimeMillis());
-            Log.i(TAG, "Forecast updated with " + forecast.size() + " hours");
         } catch (Exception error) {
-            failed = true;
-            failure = error.getClass().getSimpleName() + ": " + error.getMessage();
-            new WidgetStore(context).markUpdateFailed(System.currentTimeMillis(), failure);
-            Log.e(TAG, "Forecast update failed", error);
+            finishWithFailure(context, params, error);
+            return;
         }
 
-        synchronized (this) {
-            if (activeJob != params) return;
-            activeJob = null;
+        if (!claimJob(params)) return;
+        try {
+            new WidgetStore(context).saveForecast(forecast, System.currentTimeMillis());
+            Log.i(TAG, "Forecast updated with " + forecast.size() + " hours");
+            WeatherWidgetProvider.renderAll(context, false, false);
+            jobFinished(params, false);
+        } catch (Exception error) {
+            String failure = error.getClass().getSimpleName() + ": " + error.getMessage();
+            new WidgetStore(context).markUpdateFailed(System.currentTimeMillis(), failure);
+            Log.e(TAG, "Forecast could not be saved", error);
+            WeatherWidgetProvider.renderAll(context, false, true);
+            jobFinished(params, params.getJobId() == IMMEDIATE_JOB_ID);
         }
-        WeatherWidgetProvider.renderAll(context, false, failed);
-        jobFinished(params, failed && params.getJobId() == IMMEDIATE_JOB_ID);
+    }
+
+    private void finishWithFailure(Context context, JobParameters params, Exception error) {
+        if (!claimJob(params)) return;
+        String failure = error.getClass().getSimpleName() + ": " + error.getMessage();
+        new WidgetStore(context).markUpdateFailed(System.currentTimeMillis(), failure);
+        Log.e(TAG, "Forecast update failed", error);
+        WeatherWidgetProvider.renderAll(context, false, true);
+        jobFinished(params, params.getJobId() == IMMEDIATE_JOB_ID);
+    }
+
+    private void timeOutJob(JobParameters params) {
+        if (!claimJob(params)) return;
+        WidgetStore store = new WidgetStore(this);
+        store.markUpdateFailed(System.currentTimeMillis(), "Forecast update timed out");
+        Log.e(TAG, "Forecast update timed out");
+        WeatherWidgetProvider.renderAll(this, false, true);
+        jobFinished(params, params.getJobId() == IMMEDIATE_JOB_ID);
+    }
+
+    private boolean claimJob(JobParameters params) {
+        Runnable timeout;
+        synchronized (this) {
+            if (activeJob != params) return false;
+            activeJob = null;
+            timeout = timeoutTask;
+            timeoutTask = null;
+        }
+        if (timeout != null) mainHandler.removeCallbacks(timeout);
+        return true;
     }
 }
