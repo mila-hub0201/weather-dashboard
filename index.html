@@ -167,6 +167,40 @@
       background: #e6f0f9;
     }
 
+    @keyframes reload-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 更新ボタンは主要操作なので大きく・押した感触を分かりやすく */
+    .reload-button {
+      min-height: 48px;
+      padding: 0 18px;
+      font-weight: 700;
+      transition: transform 0.05s ease;
+    }
+
+    .reload-button:active {
+      transform: scale(0.96);
+    }
+
+    .reload-button .reload-icon {
+      display: inline-block;
+      font-size: 17px;
+    }
+
+    .reload-button.is-loading {
+      cursor: wait;
+    }
+
+    .reload-button.is-loading .reload-icon {
+      animation: reload-spin 0.7s linear infinite;
+    }
+
+    .reload-button.is-done {
+      border-color: var(--level-1);
+      background: var(--level-1);
+    }
+
     .search-results {
       margin: 10px 0 0;
       padding: 8px;
@@ -1056,6 +1090,12 @@
         width: auto;
       }
 
+      /* 更新ボタンはスマホでは独立した1行の大きなボタンにする */
+      .reload-button {
+        flex: 1 1 100%;
+        min-height: 52px;
+      }
+
       .safety-strip,
       .today-summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1169,7 +1209,10 @@
           <option value="">★ お気に入り</option>
         </select>
         <button class="button secondary fav-button" id="favToggle" type="button" title="表示中の地域をお気に入りに登録/解除">☆ 登録</button>
-        <button class="button" id="reloadAll" type="button">↻ 重要情報を更新</button>
+        <button class="button primary reload-button" id="reloadAll" type="button" aria-live="polite">
+          <span class="reload-icon" aria-hidden="true">↻</span>
+          <span class="reload-text">重要情報を更新</span>
+        </button>
       </div>
     </header>
 
@@ -2709,9 +2752,7 @@
     }
 
     function loadToday() {
-      loadWalk();
-      loadWeather();
-      loadWarnings();
+      return Promise.all([loadWalk(), loadWeather(), loadWarnings()]);
     }
 
     function loadAbout() {
@@ -2754,10 +2795,7 @@
     }
 
     function refreshImportant() {
-      loadToday();
-      loadQuakes();
-      loadTsunami();
-      loadRadar();
+      return Promise.all([loadToday(), loadQuakes(), loadTsunami(), loadRadar()]);
     }
 
     const loaders = { walk: loadToday, weather: loadWeatherAll, radar: loadRadar, more: loadMore, about: loadAbout };
@@ -2874,8 +2912,31 @@
       requestCurrentLocation();
     });
 
-    $("reloadAll").addEventListener("click", () => {
-      refreshImportant();
+    $("reloadAll").addEventListener("click", async () => {
+      const button = $("reloadAll");
+      if (button.classList.contains("is-loading")) return;
+      const textEl = button.querySelector(".reload-text");
+      const started = Date.now();
+      button.classList.remove("is-done");
+      button.classList.add("is-loading");
+      button.disabled = true;
+      textEl.textContent = "更新中…";
+      try {
+        await refreshImportant();
+      } finally {
+        // 一瞬で終わってもフィードバックが見えるよう最低0.5秒は表示する
+        const wait = Math.max(0, 500 - (Date.now() - started));
+        setTimeout(() => {
+          button.classList.remove("is-loading");
+          button.classList.add("is-done");
+          button.disabled = false;
+          textEl.textContent = "✓ 更新しました";
+          setTimeout(() => {
+            button.classList.remove("is-done");
+            textEl.textContent = "重要情報を更新";
+          }, 1600);
+        }, wait);
+      }
     });
 
     function updateClock() {
