@@ -20,6 +20,16 @@ final class ForecastRepository {
     private static final ZoneId JAPAN = ZoneId.of("Asia/Tokyo");
 
     List<ForecastHour> fetch(double latitude, double longitude) throws Exception {
+        return fetch(latitude, longitude, 10_000, 15_000);
+    }
+
+    /** 更新ボタン経由はブロードキャストの持ち時間が短いため、短いタイムアウトを指定する。 */
+    List<ForecastHour> fetch(
+            double latitude,
+            double longitude,
+            int connectTimeoutMs,
+            int readTimeoutMs
+    ) throws Exception {
         String endpoint = String.format(
                 Locale.US,
                 "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
@@ -29,8 +39,8 @@ final class ForecastRepository {
                 longitude
         );
         HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
-        connection.setConnectTimeout(10_000);
-        connection.setReadTimeout(15_000);
+        connection.setConnectTimeout(connectTimeoutMs);
+        connection.setReadTimeout(readTimeoutMs);
         connection.setUseCaches(false);
         connection.setRequestProperty("Accept", "application/json");
         connection.setRequestProperty("Cache-Control", "no-cache");

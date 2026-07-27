@@ -2,6 +2,7 @@ package jp.milahub.weatherwidget;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -86,6 +87,7 @@ public final class MainActivity extends Activity {
         root.requestApplyInsets();
         WeatherWidgetProvider.redrawWidgets(this);
         WeatherUpdateJobService.ensurePeriodic(this);
+        offerBatteryExemption();
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -125,6 +127,32 @@ public final class MainActivity extends Activity {
         }
 
         webView.loadUrl(buildDashboardUrl());
+    }
+
+    /**
+     * 省電力モード中は電池最適化の対象アプリの通信が遮断され、ウィジェットを更新できない。
+     * ウィジェットを使っていて、まだ除外されていないときだけ案内する。
+     * 実際に除外するかどうかは、この後に出る Android 標準のダイアログでユーザーが決める。
+     */
+    private void offerBatteryExemption() {
+        if (WeatherWidgetProvider.allWidgetIds(this).length == 0) return;
+        if (PowerRestrictions.isExempt(this)) return;
+        new AlertDialog.Builder(this)
+                .setTitle("ウィジェットの更新について")
+                .setMessage(
+                        "省電力モード中は、この端末がアプリの通信を止めるため、"
+                                + "ウィジェットの更新ボタンを押しても更新できません。\n\n"
+                                + "電池の最適化から除外すると、省電力モード中でも更新できるようになります。"
+                )
+                .setPositiveButton("設定する", (dialog, which) -> {
+                    try {
+                        startActivity(PowerRestrictions.requestExemptionIntent(this));
+                    } catch (RuntimeException ignored) {
+                        // 端末がこの画面を持たない場合は何もしない。
+                    }
+                })
+                .setNegativeButton("あとで", null)
+                .show();
     }
 
     private void configureSystemBars() {

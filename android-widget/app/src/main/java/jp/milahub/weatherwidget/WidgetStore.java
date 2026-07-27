@@ -29,6 +29,7 @@ final class WidgetStore {
     private static final String KEY_UPDATED = "forecast_updated";
     private static final String KEY_LAST_ATTEMPT = "forecast_last_attempt";
     private static final String KEY_LAST_ERROR = "forecast_last_error";
+    private static final String KEY_POWER_BLOCKED = "forecast_power_blocked";
     private static final String KEY_FAVORITES = "favorite_locations";
     private static final int MAX_FAVORITES = 12;
 
@@ -128,14 +129,24 @@ final class WidgetStore {
         return !prefs.getString(KEY_LAST_ERROR, "").isEmpty();
     }
 
+    /** 省電力モードの通信遮断で失敗したか。ユーザーに直せる原因なので区別して表示する。 */
+    boolean isPowerBlocked() {
+        return prefs.getBoolean(KEY_POWER_BLOCKED, false);
+    }
+
     void markUpdateStarted(long attemptedAt) {
         prefs.edit()
                 .putLong(KEY_LAST_ATTEMPT, attemptedAt)
                 .remove(KEY_LAST_ERROR)
+                .remove(KEY_POWER_BLOCKED)
                 .apply();
     }
 
     void markUpdateFailed(long attemptedAt, String error) {
+        markUpdateFailed(attemptedAt, error, false);
+    }
+
+    void markUpdateFailed(long attemptedAt, String error, boolean powerBlocked) {
         String safeError = error == null || error.trim().isEmpty()
                 ? "Forecast update failed"
                 : error.trim();
@@ -143,6 +154,7 @@ final class WidgetStore {
         prefs.edit()
                 .putLong(KEY_LAST_ATTEMPT, attemptedAt)
                 .putString(KEY_LAST_ERROR, safeError)
+                .putBoolean(KEY_POWER_BLOCKED, powerBlocked)
                 .apply();
     }
 

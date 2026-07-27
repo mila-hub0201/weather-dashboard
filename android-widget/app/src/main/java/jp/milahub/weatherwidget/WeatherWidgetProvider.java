@@ -3,6 +3,7 @@ package jp.milahub.weatherwidget;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -25,7 +26,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         WeatherUpdateJobService.ensurePeriodic(context);
-        beginRefresh(context, appWidgetIds, false);
+        beginRefresh(context, appWidgetIds, false, null);
     }
 
     @Override
@@ -34,7 +35,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             WeatherUpdateJobService.ensurePeriodic(context);
-            beginRefresh(context, allWidgetIds(context), false);
+            beginRefresh(context, allWidgetIds(context), false, null);
             return;
         }
         if (ACTION_PAGE.equals(action)) {
@@ -59,7 +60,8 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
             int[] appWidgetIds = requestedWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID
                     ? allWidgetIds(context)
                     : new int[]{requestedWidgetId};
-            beginRefresh(context, appWidgetIds, true);
+            // 通信が終わるまでプロセスを生かしておく。
+            beginRefresh(context, appWidgetIds, true, goAsync());
             return;
         }
         super.onReceive(context, intent);
@@ -82,7 +84,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     }
 
     static void requestRefresh(Context context) {
-        beginRefresh(context, allWidgetIds(context), true);
+        beginRefresh(context, allWidgetIds(context), true, null);
     }
 
     static void redrawWidgets(Context context) {
@@ -104,15 +106,26 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views);
     }
 
-    private static void beginRefresh(Context context, int[] appWidgetIds, boolean userInitiated) {
-        if (appWidgetIds.length == 0) return;
+    private static void beginRefresh(
+            Context context,
+            int[] appWidgetIds,
+            boolean userInitiated,
+            BroadcastReceiver.PendingResult pending
+    ) {
+        if (appWidgetIds.length == 0) {
+            if (pending != null) pending.finish();
+            return;
+        }
         WidgetStore store = new WidgetStore(context);
         for (int appWidgetId : appWidgetIds) {
             if (userInitiated) store.setPage(appWidgetId, 0);
-            // ユーザー操作なら押した瞬間に「更新中…」を見せる。enqueueImmediate は
-            // ジョブが実行中/待機中なら再スケジュールせず true を返し、そのジョブの
-            // 完了時に必ず再描画されるため、このラベルが残り続けることはない。
+            // ユーザー操作なら押した瞬間に「更新中…」を見せる。
             renderCached(context, appWidgetId, userInitiated, false);
+        }
+        if (userInitiated) {
+            // ジョブに任せると Doze で延期され「更新中…」のまま止まるため、その場で更新する。
+            WidgetRefresher.refreshNow(context, pending);
+            return;
         }
         if (!WeatherUpdateJobService.enqueueImmediate(context)) {
             store.markUpdateFailed(System.currentTimeMillis(), "Android rejected update job");
@@ -120,6 +133,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
                 renderCached(context, appWidgetId, false, true);
             }
         }
+        if (pending != null) pending.finish();
     }
 
     private static RemoteViews buildViews(
@@ -139,7 +153,13 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         views.setTextViewText(R.id.widget_page, (page + 1) + " / " + WidgetStore.TOTAL_PAGES);
         views.setTextViewText(
                 R.id.widget_updated,
-                updateLabel(store.getUpdatedAt(), store.getLastAttemptAt(), updating, failed)
+                updateLabel(
+                        store.getUpdatedAt(),
+                        store.getLastAttemptAt(),
+                        updating,
+                        failed,
+                        failed && store.isPowerBlocked()
+                )
         );
         views.setBoolean(R.id.widget_previous, "setEnabled", page > 0);
         views.setBoolean(R.id.widget_next, "setEnabled", page < WidgetStore.TOTAL_PAGES - 1);
@@ -174,8 +194,11 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     }
 
     private static PendingIntent pageIntent(Context context, int appWidgetId, int delta, int offset) {
+        // ユーザー操作なので前面キューで配信する。これがないとプロセスがキャッシュ
+        // (凍結) 状態のときに配信が延期され、操作しても反応しないことがある。
         Intent page = new Intent(context, WeatherWidgetProvider.class)
                 .setAction(ACTION_PAGE)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                 .putExtra(EXTRA_DELTA, delta);
         return PendingIntent.getBroadcast(
@@ -189,6 +212,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     private static PendingIntent refreshIntent(Context context, int appWidgetId) {
         Intent refresh = new Intent(context, WeatherWidgetProvider.class)
                 .setAction(ACTION_REFRESH)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         return PendingIntent.getBroadcast(
                 context,
@@ -207,10 +231,13 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
             long updatedAt,
             long lastAttemptAt,
             boolean updating,
-            boolean updateFailed
+            boolean updateFailed,
+            boolean powerBlocked
     ) {
         if (updating) return "更新中…";
         if (updateFailed) {
+            // 原因がユーザーの操作で直せるものなら、時刻よりそちらを伝える。
+            if (powerBlocked) return "⚠ 省電力で更新不可";
             // 失敗しても、表示中の予報がいつ取得したものかは分かるようにしておく
             if (updatedAt > 0) return "⚠ " + stamp(updatedAt) + " 時点";
             if (lastAttemptAt <= 0) return "更新失敗";

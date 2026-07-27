@@ -8,8 +8,8 @@ android {
         applicationId "jp.milahub.weatherwidget"
         minSdk 26
         targetSdk 36
-        versionCode 5
-        versionName "1.4"
+        versionCode 7
+        versionName "1.6"
 
         buildConfigField "String", "WEB_APP_URL", '"https://mila-hub0201.github.io/weather-dashboard/"'
     }

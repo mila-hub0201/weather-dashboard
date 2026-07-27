@@ -23,6 +23,7 @@ public final class WeatherUpdateJobService extends JobService {
     private static final long PERIODIC_INTERVAL_MS = 4 * 60 * 60 * 1000L;
     private static final long PERIODIC_FLEX_MS = 30 * 60 * 1000L;
     private static final long JOB_TIMEOUT_MS = 35_000L;
+    private static final long FALLBACK_DEADLINE_MS = 10 * 60 * 1000L;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean JOB_RUNNING = new AtomicBoolean(false);
 
@@ -63,18 +64,20 @@ public final class WeatherUpdateJobService extends JobService {
         JobScheduler scheduler = context.getSystemService(JobScheduler.class);
         if (scheduler == null) return false;
         // 実行中のジョブは完了時 (成功/失敗/タイムアウトいずれでも) に必ず再描画するため、
-        // 二重スケジュールせずそのまま任せる。待機中のジョブも同様に開始を待てばよい。
+        // 二重スケジュールせずそのまま任せる。待機中のジョブも deadline 付きなので放置されない。
         if (JOB_RUNNING.get()) return true;
         if (scheduler.getPendingJob(IMMEDIATE_JOB_ID) != null) return true;
 
-        // ネットワーク必須にしないと、圏外でも実行されて即座に「更新失敗」になる。
-        // deadline を置くと条件無視で走ってしまうため設定しない。
+        // ネットワークが来るのを待つが、deadline を必ず置く。deadline がないと Doze や
+        // アプリスタンバイで延期され続け、いつまでも更新されないまま放置される。
+        // 期限まで通信できなければ実行して正直に失敗を表示する。
         JobInfo job = new JobInfo.Builder(
                 IMMEDIATE_JOB_ID,
                 new ComponentName(context, WeatherUpdateJobService.class)
         )
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setMinimumLatency(0)
+                .setOverrideDeadline(FALLBACK_DEADLINE_MS)
                 .setBackoffCriteria(15_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
                 .build();
         try {
