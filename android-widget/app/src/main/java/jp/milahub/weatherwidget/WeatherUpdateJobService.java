@@ -13,7 +13,7 @@ import android.util.Log;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class WeatherUpdateJobService extends JobService {
     static final int PERIODIC_JOB_ID = 41_201;
@@ -22,10 +22,9 @@ public final class WeatherUpdateJobService extends JobService {
     private static final String TAG = "WeatherWidgetUpdate";
     private static final long PERIODIC_INTERVAL_MS = 4 * 60 * 60 * 1000L;
     private static final long PERIODIC_FLEX_MS = 30 * 60 * 1000L;
-    private static final long IMMEDIATE_DEBOUNCE_MS = 5_000L;
     private static final long JOB_TIMEOUT_MS = 35_000L;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
-    private static final AtomicLong LAST_IMMEDIATE_ENQUEUE = new AtomicLong(0L);
+    private static final AtomicBoolean JOB_RUNNING = new AtomicBoolean(false);
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private JobParameters activeJob;
@@ -63,21 +62,23 @@ public final class WeatherUpdateJobService extends JobService {
         ensurePeriodic(context);
         JobScheduler scheduler = context.getSystemService(JobScheduler.class);
         if (scheduler == null) return false;
-        long now = System.currentTimeMillis();
-        if (now - LAST_IMMEDIATE_ENQUEUE.get() < IMMEDIATE_DEBOUNCE_MS) return true;
+        // 実行中のジョブは完了時 (成功/失敗/タイムアウトいずれでも) に必ず再描画するため、
+        // 二重スケジュールせずそのまま任せる。待機中のジョブも同様に開始を待てばよい。
+        if (JOB_RUNNING.get()) return true;
+        if (scheduler.getPendingJob(IMMEDIATE_JOB_ID) != null) return true;
 
+        // ネットワーク必須にしないと、圏外でも実行されて即座に「更新失敗」になる。
+        // deadline を置くと条件無視で走ってしまうため設定しない。
         JobInfo job = new JobInfo.Builder(
                 IMMEDIATE_JOB_ID,
                 new ComponentName(context, WeatherUpdateJobService.class)
         )
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setMinimumLatency(0)
-                .setOverrideDeadline(1_000)
-                .setBackoffCriteria(30_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
+                .setBackoffCriteria(15_000, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
                 .build();
         try {
-            boolean scheduled = scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS;
-            if (scheduled) LAST_IMMEDIATE_ENQUEUE.set(now);
-            return scheduled;
+            return scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS;
         } catch (RuntimeException error) {
             Log.e(TAG, "Immediate update could not be scheduled", error);
             return false;
@@ -101,6 +102,7 @@ public final class WeatherUpdateJobService extends JobService {
             if (activeJob != null) return false;
             activeJob = params;
         }
+        JOB_RUNNING.set(true);
 
         WidgetStore store = new WidgetStore(this);
         store.markUpdateStarted(System.currentTimeMillis());
@@ -124,6 +126,7 @@ public final class WeatherUpdateJobService extends JobService {
             timeout = timeoutTask;
             timeoutTask = null;
         }
+        JOB_RUNNING.set(false);
         if (timeout != null) mainHandler.removeCallbacks(timeout);
         WidgetStore store = new WidgetStore(this);
         store.markUpdateFailed(System.currentTimeMillis(), "Update interrupted by Android");
@@ -185,6 +188,7 @@ public final class WeatherUpdateJobService extends JobService {
             timeout = timeoutTask;
             timeoutTask = null;
         }
+        JOB_RUNNING.set(false);
         if (timeout != null) mainHandler.removeCallbacks(timeout);
         return true;
     }

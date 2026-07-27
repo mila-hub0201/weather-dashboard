@@ -20,8 +20,7 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     private static final String ACTION_REFRESH = "jp.milahub.weatherwidget.REFRESH";
     private static final String EXTRA_DELTA = "delta";
     private static final ZoneId JAPAN = ZoneId.of("Asia/Tokyo");
-    private static final DateTimeFormatter UPDATE_TIME = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.JAPAN);
-    private static final DateTimeFormatter UPDATE_DATE_TIME = DateTimeFormatter.ofPattern("M/d HH:mm", Locale.JAPAN);
+    private static final DateTimeFormatter UPDATE_DATE_TIME = DateTimeFormatter.ofPattern("MM/dd HH:mm", Locale.JAPAN);
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
@@ -105,13 +104,15 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views);
     }
 
-    private static void beginRefresh(Context context, int[] appWidgetIds, boolean resetPages) {
+    private static void beginRefresh(Context context, int[] appWidgetIds, boolean userInitiated) {
         if (appWidgetIds.length == 0) return;
         WidgetStore store = new WidgetStore(context);
         for (int appWidgetId : appWidgetIds) {
-            if (resetPages) store.setPage(appWidgetId, 0);
-            // Clear a stale transient label before Android starts the update job.
-            renderCached(context, appWidgetId, false, false);
+            if (userInitiated) store.setPage(appWidgetId, 0);
+            // ユーザー操作なら押した瞬間に「更新中…」を見せる。enqueueImmediate は
+            // ジョブが実行中/待機中なら再スケジュールせず true を返し、そのジョブの
+            // 完了時に必ず再描画されるため、このラベルが残り続けることはない。
+            renderCached(context, appWidgetId, userInitiated, false);
         }
         if (!WeatherUpdateJobService.enqueueImmediate(context)) {
             store.markUpdateFailed(System.currentTimeMillis(), "Android rejected update job");
@@ -210,17 +211,18 @@ public final class WeatherWidgetProvider extends AppWidgetProvider {
     ) {
         if (updating) return "更新中…";
         if (updateFailed) {
+            // 失敗しても、表示中の予報がいつ取得したものかは分かるようにしておく
+            if (updatedAt > 0) return "⚠ " + stamp(updatedAt) + " 時点";
             if (lastAttemptAt <= 0) return "更新失敗";
-            return "更新失敗 " + UPDATE_TIME.format(
-                    java.time.Instant.ofEpochMilli(lastAttemptAt).atZone(JAPAN)
-            );
+            return "⚠ 更新失敗 " + stamp(lastAttemptAt);
         }
         if (updatedAt <= 0) return "未更新";
-        java.time.ZonedDateTime updated = java.time.Instant.ofEpochMilli(updatedAt).atZone(JAPAN);
-        DateTimeFormatter format = updated.toLocalDate().equals(LocalDate.now(JAPAN))
-                ? UPDATE_TIME
-                : UPDATE_DATE_TIME;
-        return "更新 " + format.format(updated);
+        return stamp(updatedAt) + " 時点";
+    }
+
+    /** 常に「MM/dd HH:mm」で表示し、いつの情報か必ず分かるようにする。 */
+    private static String stamp(long epochMillis) {
+        return UPDATE_DATE_TIME.format(java.time.Instant.ofEpochMilli(epochMillis).atZone(JAPAN));
     }
 
     static String hourLabel(String time) {

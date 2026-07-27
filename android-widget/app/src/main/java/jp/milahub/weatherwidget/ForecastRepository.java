@@ -58,6 +58,7 @@ final class ForecastRepository {
                 .withMinute(0)
                 .withSecond(0)
                 .withNano(0);
+        // 現在時刻以降が見つからなければ (端末時計のずれ等) 先頭から使う
         int start = 0;
         for (int i = 0; i < times.length(); i++) {
             LocalDateTime candidate = LocalDateTime.parse(times.getString(i));
@@ -84,8 +85,8 @@ final class ForecastRepository {
                     weatherCodes.isNull(i) ? -1 : weatherCodes.optInt(i, -1)
             ));
         }
-        if (result.size() < 24) {
-            throw new IOException("Open-Meteo returned fewer than 24 forecast hours");
+        if (result.isEmpty()) {
+            throw new IOException("Open-Meteo returned no usable forecast hours");
         }
         return result;
     }
