@@ -17,8 +17,8 @@ final class WidgetStore {
     static final String DEFAULT_NAME = "東京 (千代田区)";
     static final double DEFAULT_LATITUDE = 35.6812;
     static final double DEFAULT_LONGITUDE = 139.7671;
-    static final int HOURS_PER_PAGE = 4;
-    static final int TOTAL_PAGES = 6;
+    /** 保存する予報の長さ。ウィジェットで見られるのはここまで。 */
+    static final int TOTAL_HOURS = WidgetVariant.TOTAL_HOURS;
 
     private static final String PREFS = "weather_widget";
     private static final String KEY_NAME = "location_name";
@@ -205,12 +205,12 @@ final class WidgetStore {
         return favorites;
     }
 
-    int getPage(int appWidgetId) {
-        return normalizePage(prefs.getInt(pageKey(appWidgetId), 0));
+    int getPage(int appWidgetId, int totalPages) {
+        return normalizePage(prefs.getInt(pageKey(appWidgetId), 0), totalPages);
     }
 
-    void setPage(int appWidgetId, int page) {
-        prefs.edit().putInt(pageKey(appWidgetId), normalizePage(page)).apply();
+    void setPage(int appWidgetId, int page, int totalPages) {
+        prefs.edit().putInt(pageKey(appWidgetId), normalizePage(page, totalPages)).apply();
     }
 
     void removeWidget(int appWidgetId) {
@@ -229,9 +229,10 @@ final class WidgetStore {
         return "page_" + appWidgetId;
     }
 
-    private static int normalizePage(int page) {
-        int value = page % TOTAL_PAGES;
-        return value < 0 ? value + TOTAL_PAGES : value;
+    private static int normalizePage(int page, int totalPages) {
+        if (totalPages <= 0) return 0;
+        int value = page % totalPages;
+        return value < 0 ? value + totalPages : value;
     }
 
     static boolean isValidLocation(double latitude, double longitude) {

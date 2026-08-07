@@ -13,46 +13,67 @@ import android.graphics.drawable.Drawable;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * 予報グラフの描画。
+ *
+ * <p>幅とスロット数はウィジェットのバリエーションごとに変わるが、1スロットあたりの
+ * 幅は揃えてあるので、半分の幅でも各時間の見え方は標準幅と同じになる。
+ */
 final class WidgetChartRenderer {
-    private static final int WIDTH = 600;
     private static final int HEIGHT = 250;
-    private static final int SLOT_COUNT = WidgetStore.HOURS_PER_PAGE;
     private static final int COLOR_TEXT = Color.rgb(23, 33, 43);
     private static final int COLOR_MUTED = Color.rgb(82, 96, 109);
     private static final int COLOR_LINE = Color.rgb(217, 119, 6);
     private static final int COLOR_RAIN = Color.rgb(59, 130, 196);
     private static final int COLOR_GRID = Color.rgb(217, 226, 236);
 
-    private WidgetChartRenderer() {}
+    private final int width;
+    private final int slotCount;
+
+    private WidgetChartRenderer(int width, int slotCount) {
+        this.width = width;
+        this.slotCount = slotCount;
+    }
 
     static Bitmap render(
+            Context context,
+            WidgetVariant variant,
+            List<ForecastHour> forecast,
+            int start,
+            boolean updateFailed
+    ) {
+        return new WidgetChartRenderer(variant.chartWidth, variant.hoursPerPage)
+                .draw(context, forecast, start, updateFailed);
+    }
+
+    private Bitmap draw(
             Context context,
             List<ForecastHour> forecast,
             int start,
             boolean updateFailed
     ) {
-        Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
+        Bitmap bitmap = Bitmap.createBitmap(width, HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         paint.setColor(Color.rgb(248, 250, 252));
         paint.setStyle(Paint.Style.FILL);
-        canvas.drawRoundRect(new RectF(0, 0, WIDTH, HEIGHT), 14, 14, paint);
+        canvas.drawRoundRect(new RectF(0, 0, width, HEIGHT), 14, 14, paint);
 
         if (forecast.isEmpty()) {
             paint.setColor(COLOR_MUTED);
-            paint.setTextSize(24);
+            paint.setTextSize(slotCount <= 2 ? 19 : 24);
             paint.setTextAlign(Paint.Align.CENTER);
             paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
-            canvas.drawText(updateFailed ? "更新できませんでした" : "予報を取得中…", WIDTH / 2f, 132, paint);
+            canvas.drawText(updateFailed ? "更新できませんでした" : "予報を取得中…", width / 2f, 132, paint);
             return bitmap;
         }
 
-        ForecastHour[] hours = new ForecastHour[SLOT_COUNT];
+        ForecastHour[] hours = new ForecastHour[slotCount];
         int minTemperature = Integer.MAX_VALUE;
         int maxTemperature = Integer.MIN_VALUE;
         double maxPrecipitation = 0;
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        for (int slot = 0; slot < slotCount; slot++) {
             int index = start + slot;
             if (index >= forecast.size()) continue;
             ForecastHour hour = forecast.get(index);
@@ -70,19 +91,19 @@ final class WidgetChartRenderer {
         return bitmap;
     }
 
-    private static void drawGrid(Canvas canvas, Paint paint) {
+    private void drawGrid(Canvas canvas, Paint paint) {
         paint.setColor(COLOR_GRID);
         paint.setStrokeWidth(2);
         paint.setStyle(Paint.Style.STROKE);
-        canvas.drawLine(12, 201, WIDTH - 12, 201, paint);
-        for (int slot = 1; slot < SLOT_COUNT; slot++) {
-            float x = WIDTH * slot / (float) SLOT_COUNT;
+        canvas.drawLine(12, 201, width - 12, 201, paint);
+        for (int slot = 1; slot < slotCount; slot++) {
+            float x = width * slot / (float) slotCount;
             canvas.drawLine(x, 76, x, 229, paint);
         }
         paint.setStyle(Paint.Style.FILL);
     }
 
-    private static void drawWeather(
+    private void drawWeather(
             Context context,
             Canvas canvas,
             Paint paint,
@@ -92,7 +113,7 @@ final class WidgetChartRenderer {
         paint.setTextSize(18);
         paint.setColor(COLOR_MUTED);
         paint.setTypeface(Typeface.create("sans-serif", Typeface.BOLD));
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        for (int slot = 0; slot < slotCount; slot++) {
             ForecastHour hour = hours[slot];
             if (hour == null) continue;
             float x = centerX(slot);
@@ -111,7 +132,7 @@ final class WidgetChartRenderer {
         }
     }
 
-    private static void drawPrecipitation(
+    private void drawPrecipitation(
             Canvas canvas,
             Paint paint,
             ForecastHour[] hours,
@@ -121,7 +142,7 @@ final class WidgetChartRenderer {
         final float maxHeight = 56;
         paint.setColor(Color.argb(82, 59, 130, 196));
         paint.setStyle(Paint.Style.FILL);
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        for (int slot = 0; slot < slotCount; slot++) {
             ForecastHour hour = hours[slot];
             if (hour == null) continue;
             float x = centerX(slot);
@@ -145,7 +166,7 @@ final class WidgetChartRenderer {
         }
     }
 
-    private static void drawTemperature(
+    private void drawTemperature(
             Canvas canvas,
             Paint paint,
             ForecastHour[] hours,
@@ -155,8 +176,8 @@ final class WidgetChartRenderer {
         float span = Math.max(4, maxTemperature - minTemperature);
         Path path = new Path();
         boolean started = false;
-        float[] points = new float[SLOT_COUNT * 2];
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        float[] points = new float[slotCount * 2];
+        for (int slot = 0; slot < slotCount; slot++) {
             ForecastHour hour = hours[slot];
             if (hour == null) continue;
             float x = centerX(slot);
@@ -178,7 +199,7 @@ final class WidgetChartRenderer {
         paint.setStrokeJoin(Paint.Join.ROUND);
         canvas.drawPath(path, paint);
 
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        for (int slot = 0; slot < slotCount; slot++) {
             ForecastHour hour = hours[slot];
             if (hour == null) continue;
             float x = points[slot * 2];
@@ -197,12 +218,12 @@ final class WidgetChartRenderer {
         }
     }
 
-    private static void drawTimes(Canvas canvas, Paint paint, ForecastHour[] hours) {
+    private void drawTimes(Canvas canvas, Paint paint, ForecastHour[] hours) {
         paint.setColor(COLOR_MUTED);
         paint.setTextSize(19);
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
-        for (int slot = 0; slot < SLOT_COUNT; slot++) {
+        for (int slot = 0; slot < slotCount; slot++) {
             ForecastHour hour = hours[slot];
             if (hour == null) continue;
             canvas.drawText(WeatherWidgetProvider.hourLabel(hour.time), centerX(slot), 237, paint);
@@ -217,7 +238,7 @@ final class WidgetChartRenderer {
         return String.format(Locale.JAPAN, "%.1fmm", amount);
     }
 
-    private static float centerX(int slot) {
-        return WIDTH * (slot + 0.5f) / SLOT_COUNT;
+    private float centerX(int slot) {
+        return width * (slot + 0.5f) / slotCount;
     }
 }

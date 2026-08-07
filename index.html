@@ -1209,9 +1209,10 @@
           <option value="">★ お気に入り</option>
         </select>
         <button class="button secondary fav-button" id="favToggle" type="button" title="表示中の地域をお気に入りに登録/解除">☆ 登録</button>
-        <button class="button primary reload-button" id="reloadAll" type="button" aria-live="polite">
+        <button class="button primary reload-button" id="reloadAll" type="button" aria-live="polite"
+                title="警報・地震・津波・雨雲・天気・各社予報・花粉をまとめて最新にします">
           <span class="reload-icon" aria-hidden="true">↻</span>
-          <span class="reload-text">重要情報を更新</span>
+          <span class="reload-text">すべて更新</span>
         </button>
       </div>
     </header>
@@ -2798,6 +2799,23 @@
       return Promise.all([loadToday(), loadQuakes(), loadTsunami(), loadRadar()]);
     }
 
+    // 重要情報だけだと、天気タブの各社予報と花粉が取り残される。
+    // 押したら全部が最新になる方が、どのタブを開いていたか意識せずに済む。
+    function refreshEverything() {
+      const done = Promise.all([
+        loadToday(),
+        loadConsensus(),
+        loadQuakes(),
+        loadTsunami(),
+        loadRadar(),
+        loadPollen()
+      ]);
+      // タブ切り替え時に再取得されないよう、まとめ読み込み済みとして記録する
+      cache.more = Date.now();
+      cache.about = Date.now();
+      return done;
+    }
+
     const loaders = { walk: loadToday, weather: loadWeatherAll, radar: loadRadar, more: loadMore, about: loadAbout };
 
     function loadTab(tab, force) {
@@ -2922,7 +2940,7 @@
       button.disabled = true;
       textEl.textContent = "更新中…";
       try {
-        await refreshImportant();
+        await refreshEverything();
       } finally {
         // 一瞬で終わってもフィードバックが見えるよう最低0.5秒は表示する
         const wait = Math.max(0, 500 - (Date.now() - started));
@@ -2933,7 +2951,7 @@
           textEl.textContent = "✓ 更新しました";
           setTimeout(() => {
             button.classList.remove("is-done");
-            textEl.textContent = "重要情報を更新";
+            textEl.textContent = "すべて更新";
           }, 1600);
         }, wait);
       }

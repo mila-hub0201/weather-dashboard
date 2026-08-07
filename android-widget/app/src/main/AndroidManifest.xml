@@ -51,5 +51,19 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/weather_widget_info" />
         </receiver>
+
+        <receiver
+            android:name=".WeatherWidgetNarrowProvider"
+            android:exported="false"
+            android:label="@string/widget_narrow_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_narrow_info" />
+        </receiver>
     </application>
 </manifest>

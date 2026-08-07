@@ -85,8 +85,9 @@ final class ForecastRepository {
                         Math.min(precipitation.length(), weatherCodes.length())
                 )
         );
-        List<ForecastHour> result = new ArrayList<>(24);
-        for (int i = start; i < available && result.size() < 24; i++) {
+        int wanted = WidgetStore.TOTAL_HOURS;
+        List<ForecastHour> result = new ArrayList<>(wanted);
+        for (int i = start; i < available && result.size() < wanted; i++) {
             result.add(new ForecastHour(
                     times.getString(i),
                     (int) Math.round(temperatures.optDouble(i, 0)),

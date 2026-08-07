@@ -181,7 +181,8 @@ public final class WidgetConfigActivity extends Activity {
     }
 
     private void finishConfiguration() {
-        WeatherWidgetProvider.renderCached(this, appWidgetId, true, false);
+        // 設定画面はどちらのバリエーションからも開かれるので、対象のIDから判別する。
+        WeatherWidgetProvider.renderCached(this, WidgetVariant.forWidgetId(this, appWidgetId), appWidgetId, true, false);
         WeatherWidgetProvider.requestRefresh(this);
         Intent result = new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         setResult(RESULT_OK, result);
