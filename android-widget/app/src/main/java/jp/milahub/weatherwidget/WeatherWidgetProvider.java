@@ -7,6 +7,7 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 import android.widget.RemoteViews;
 
 import java.time.LocalDate;
@@ -23,15 +24,20 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
     private static final ZoneId JAPAN = ZoneId.of("Asia/Tokyo");
     private static final DateTimeFormatter UPDATE_DATE_TIME = DateTimeFormatter.ofPattern("MM/dd HH:mm", Locale.JAPAN);
 
-    /** このレシーバーが受け持つ表示バリエーション。半幅版はここだけを差し替える。 */
-    WidgetVariant variant() {
-        return WidgetVariant.of(getClass());
-    }
-
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         WeatherUpdateJobService.ensurePeriodic(context);
-        beginRefresh(context, variant(), appWidgetIds, false, null);
+        beginRefresh(context, appWidgetIds, false, null);
+    }
+
+    @Override
+    public void onAppWidgetOptionsChanged(
+            Context context,
+            AppWidgetManager manager,
+            int appWidgetId,
+            Bundle newOptions
+    ) {
+        renderCached(context, appWidgetId, false, false);
     }
 
     @Override
@@ -40,7 +46,7 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             WeatherUpdateJobService.ensurePeriodic(context);
-            beginRefresh(context, variant(), variant().widgetIds(context), false, null);
+            beginRefresh(context, allWidgetIds(context), false, null);
             return;
         }
         if (ACTION_PAGE.equals(action)) {
@@ -49,13 +55,13 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
                     AppWidgetManager.INVALID_APPWIDGET_ID
             );
             if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
-                WidgetVariant variant = variant();
+                WidgetVariant variant = WidgetVariant.forWidgetId(context, appWidgetId);
                 int totalPages = variant.totalPages();
                 WidgetStore store = new WidgetStore(context);
                 int current = store.getPage(appWidgetId, totalPages);
                 int delta = intent.getIntExtra(EXTRA_DELTA, 0);
                 store.setPage(appWidgetId, Math.max(0, Math.min(totalPages - 1, current + delta)), totalPages);
-                renderCached(context, variant, appWidgetId, false, false);
+                renderCached(context, appWidgetId, false, false);
             }
             return;
         }
@@ -65,10 +71,10 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
                     AppWidgetManager.INVALID_APPWIDGET_ID
             );
             int[] appWidgetIds = requestedWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID
-                    ? variant().widgetIds(context)
+                    ? allWidgetIds(context)
                     : new int[]{requestedWidgetId};
             // 通信が終わるまでプロセスを生かしておく。
-            beginRefresh(context, variant(), appWidgetIds, true, goAsync());
+            beginRefresh(context, appWidgetIds, true, goAsync());
             return;
         }
         super.onReceive(context, intent);
@@ -91,9 +97,7 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
     }
 
     static void requestRefresh(Context context) {
-        for (WidgetVariant variant : WidgetVariant.values()) {
-            beginRefresh(context, variant, variant.widgetIds(context), true, null);
-        }
+        beginRefresh(context, allWidgetIds(context), true, null);
     }
 
     static void redrawWidgets(Context context) {
@@ -101,20 +105,18 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
     }
 
     static void renderAll(Context context, boolean updating, boolean updateFailed) {
-        for (WidgetVariant variant : WidgetVariant.values()) {
-            for (int appWidgetId : variant.widgetIds(context)) {
-                renderCached(context, variant, appWidgetId, updating, updateFailed);
-            }
+        for (int appWidgetId : allWidgetIds(context)) {
+            renderCached(context, appWidgetId, updating, updateFailed);
         }
     }
 
     static void renderCached(
             Context context,
-            WidgetVariant variant,
             int appWidgetId,
             boolean updating,
             boolean updateFailed
     ) {
+        WidgetVariant variant = WidgetVariant.forWidgetId(context, appWidgetId);
         WidgetStore store = new WidgetStore(context);
         List<ForecastHour> forecast = store.getForecast();
         RemoteViews views = buildViews(context, variant, appWidgetId, store, forecast, updating, updateFailed);
@@ -123,7 +125,6 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
 
     private static void beginRefresh(
             Context context,
-            WidgetVariant variant,
             int[] appWidgetIds,
             boolean userInitiated,
             BroadcastReceiver.PendingResult pending
@@ -134,9 +135,10 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         }
         WidgetStore store = new WidgetStore(context);
         for (int appWidgetId : appWidgetIds) {
+            WidgetVariant variant = WidgetVariant.forWidgetId(context, appWidgetId);
             if (userInitiated) store.setPage(appWidgetId, 0, variant.totalPages());
             // ユーザー操作なら押した瞬間に「更新中…」を見せる。
-            renderCached(context, variant, appWidgetId, userInitiated, false);
+            renderCached(context, appWidgetId, userInitiated, false);
         }
         if (userInitiated) {
             // ジョブに任せると Doze で延期され「更新中…」のまま止まるため、その場で更新する。
@@ -146,7 +148,7 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         if (!WeatherUpdateJobService.enqueueImmediate(context)) {
             store.markUpdateFailed(System.currentTimeMillis(), "Android rejected update job");
             for (int appWidgetId : appWidgetIds) {
-                renderCached(context, variant, appWidgetId, false, true);
+                renderCached(context, appWidgetId, false, true);
             }
         }
         if (pending != null) pending.finish();
@@ -164,7 +166,7 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         int totalPages = variant.totalPages();
         RemoteViews views = new RemoteViews(
                 context.getPackageName(),
-                variant == WidgetVariant.NARROW ? R.layout.weather_widget_narrow : R.layout.weather_widget
+                variant.layoutId
         );
         int page = store.getPage(appWidgetId, totalPages);
         int start = page * variant.hoursPerPage;
@@ -196,9 +198,9 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         PendingIntent openApp = openAppIntent(context, appWidgetId);
         views.setOnClickPendingIntent(R.id.widget_location, openApp);
         views.setOnClickPendingIntent(R.id.widget_chart, openApp);
-        views.setOnClickPendingIntent(R.id.widget_previous, pageIntent(context, variant, appWidgetId, -1, 1));
-        views.setOnClickPendingIntent(R.id.widget_next, pageIntent(context, variant, appWidgetId, 1, 2));
-        views.setOnClickPendingIntent(R.id.widget_refresh, refreshIntent(context, variant, appWidgetId));
+        views.setOnClickPendingIntent(R.id.widget_previous, pageIntent(context, appWidgetId, -1, 1));
+        views.setOnClickPendingIntent(R.id.widget_next, pageIntent(context, appWidgetId, 1, 2));
+        views.setOnClickPendingIntent(R.id.widget_refresh, refreshIntent(context, appWidgetId));
         return views;
     }
 
@@ -216,14 +218,13 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
 
     private static PendingIntent pageIntent(
             Context context,
-            WidgetVariant variant,
             int appWidgetId,
             int delta,
             int offset
     ) {
         // ユーザー操作なので前面キューで配信する。これがないとプロセスがキャッシュ
         // (凍結) 状態のときに配信が延期され、操作しても反応しないことがある。
-        Intent page = new Intent(context, variant.provider)
+        Intent page = new Intent(context, WeatherWidgetProvider.class)
                 .setAction(ACTION_PAGE)
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -236,8 +237,8 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
         );
     }
 
-    private static PendingIntent refreshIntent(Context context, WidgetVariant variant, int appWidgetId) {
-        Intent refresh = new Intent(context, variant.provider)
+    private static PendingIntent refreshIntent(Context context, int appWidgetId) {
+        Intent refresh = new Intent(context, WeatherWidgetProvider.class)
                 .setAction(ACTION_REFRESH)
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
@@ -251,19 +252,9 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
 
     /** 設置されているウィジェットの総数 (バリエーションをまとめた数)。 */
     static int[] allWidgetIds(Context context) {
-        int total = 0;
-        int[][] perVariant = new int[WidgetVariant.values().length][];
-        for (int i = 0; i < perVariant.length; i++) {
-            perVariant[i] = WidgetVariant.values()[i].widgetIds(context);
-            total += perVariant[i].length;
-        }
-        int[] all = new int[total];
-        int at = 0;
-        for (int[] ids : perVariant) {
-            System.arraycopy(ids, 0, all, at, ids.length);
-            at += ids.length;
-        }
-        return all;
+        return AppWidgetManager.getInstance(context).getAppWidgetIds(
+                new ComponentName(context, WeatherWidgetProvider.class)
+        );
     }
 
     private static String updateLabel(

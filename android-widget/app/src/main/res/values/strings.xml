@@ -1,9 +1,7 @@
 <resources>
     <string name="app_name">天気チェック</string>
     <string name="widget_name">12時間天気</string>
-    <string name="widget_description">天気、気温の折れ線、降水量の棒グラフを4時間ずつ、合計12時間分を確認できます</string>
-    <string name="widget_narrow_name">12時間天気 (幅半分)</string>
-    <string name="widget_narrow_description">標準幅の半分。2時間ずつ、合計12時間分を確認できます</string>
+    <string name="widget_description">幅に合わせて2時間または4時間ずつ、合計12時間分の天気を確認できます</string>
     <string name="widget_chart_description">天気、気温、降水量のグラフ</string>
     <string name="widget_placeholder_location">東京 (千代田区)</string>
     <string name="widget_placeholder_updated">更新 --:--</string>

@@ -1,67 +1,40 @@
 package jp.milahub.weatherwidget;
 
 import android.appwidget.AppWidgetManager;
-import android.appwidget.AppWidgetProviderInfo;
-import android.content.ComponentName;
 import android.content.Context;
+import android.os.Bundle;
 
-/**
- * ウィジェットの表示バリエーション。
- *
- * <p>どちらも見られる予報は同じ 12 時間で、1ページに何時間を載せるかだけが違う。
- * 1スロットの幅を揃えてあるので、グラフの見た目は幅が変わっても同じになる。
- */
 enum WidgetVariant {
-    /** 標準幅。4時間ずつ3ページ。 */
-    WIDE(WeatherWidgetProvider.class, 4, 600),
-    /** 標準の半分の幅。2時間ずつ6ページ。 */
-    NARROW(WeatherWidgetNarrowProvider.class, 2, 300);
+    WIDE(4, 600, R.layout.weather_widget),
+    NARROW(2, 300, R.layout.weather_widget_narrow);
 
-    /** 表示できる予報の長さ。ページ構成が違ってもここは共通。 */
     static final int TOTAL_HOURS = 12;
 
-    final Class<?> provider;
+    private static final int NARROW_MAX_WIDTH_DP = 180;
+    private static final String SAMSUNG_COLUMN_SPAN = "semAppWidgetColumnSpan";
+
     final int hoursPerPage;
     final int chartWidth;
+    final int layoutId;
 
-    WidgetVariant(Class<?> provider, int hoursPerPage, int chartWidth) {
-        this.provider = provider;
+    WidgetVariant(int hoursPerPage, int chartWidth, int layoutId) {
         this.hoursPerPage = hoursPerPage;
         this.chartWidth = chartWidth;
+        this.layoutId = layoutId;
     }
 
     int totalPages() {
         return TOTAL_HOURS / hoursPerPage;
     }
 
-    ComponentName component(Context context) {
-        return new ComponentName(context, provider);
-    }
-
-    int[] widgetIds(Context context) {
-        return AppWidgetManager.getInstance(context).getAppWidgetIds(component(context));
-    }
-
-    /**
-     * ウィジェットIDから、どちらのバリエーションかを調べる。
-     * 設定中 (まだ設置が確定していない) のIDでも引けるよう、登録情報から判定する。
-     */
     static WidgetVariant forWidgetId(Context context, int appWidgetId) {
-        AppWidgetProviderInfo info =
-                AppWidgetManager.getInstance(context).getAppWidgetInfo(appWidgetId);
-        if (info != null && info.provider != null) {
-            String className = info.provider.getClassName();
-            for (WidgetVariant variant : values()) {
-                if (variant.provider.getName().equals(className)) return variant;
-            }
-        }
-        return WIDE;
-    }
-
-    static WidgetVariant of(Class<?> providerClass) {
-        for (WidgetVariant variant : values()) {
-            if (variant.provider.equals(providerClass)) return variant;
-        }
+        Bundle options = AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId);
+        // One UI reports the actual grid span, while its width value is much wider than AOSP's.
+        int columnSpan = options.getInt(SAMSUNG_COLUMN_SPAN, 0);
+        if (columnSpan == 2) return NARROW;
+        if (columnSpan > 0) return WIDE;
+        int minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
+        if (minWidth > 0 && minWidth <= NARROW_MAX_WIDTH_DP) return NARROW;
         return WIDE;
     }
 }
