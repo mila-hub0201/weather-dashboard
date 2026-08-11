@@ -10,7 +10,7 @@ The application code in this repository is licensed under the MIT License. See [
 
 ### Japan Meteorological Agency
 
-This application uses or links to data and pages from the Japan Meteorological Agency, including weather warnings/advisories, earthquake information, tsunami information, and High-resolution Precipitation Nowcasts.
+This application uses or links to data and pages from the Japan Meteorological Agency, including weather warnings/advisories, earthquake information, tsunami information, tropical cyclone (typhoon) position, intensity, and track forecasts, and High-resolution Precipitation Nowcasts.
 
 Source: Japan Meteorological Agency  
 Website: https://www.jma.go.jp/
