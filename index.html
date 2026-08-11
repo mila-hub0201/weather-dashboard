@@ -253,42 +253,45 @@
     .safety-strip {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-top: 9px;
     }
 
     .safety-item {
       min-width: 0;
-      min-height: 58px;
+      min-height: 44px;
       border: 1px solid var(--line);
-      border-left-width: 5px;
+      border-left-width: 4px;
       border-radius: var(--radius);
       background: var(--surface);
       color: var(--text);
-      padding: 8px 10px;
+      padding: 5px 7px;
       display: grid;
-      gap: 2px;
+      gap: 1px;
       text-align: left;
       cursor: pointer;
     }
 
     .safety-item .si-label {
       color: var(--muted);
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 700;
+      line-height: 1.25;
     }
 
     .safety-item .si-main {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 14px;
+      font-size: 12.5px;
       font-weight: 700;
+      line-height: 1.25;
     }
 
     .safety-item .si-time {
       color: var(--muted);
-      font-size: 11px;
+      font-size: 9.5px;
+      line-height: 1.2;
     }
 
     .safety-item.ok { border-left-color: var(--level-1); }
@@ -1253,6 +1256,7 @@
         <div class="more-nav-menu" id="moreNavMenu" role="menu" aria-label="防災・生活情報を選択" hidden>
           <button class="more-nav-option" data-more-tab="quake" type="button" role="menuitem" aria-current="true"><span aria-hidden="true">🌏</span>地震</button>
           <button class="more-nav-option" data-more-tab="tsunami" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌊</span>津波</button>
+          <button class="more-nav-option" data-more-tab="typhoon" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌀</span>台風</button>
           <button class="more-nav-option" data-more-tab="pollen" type="button" role="menuitem" aria-current="false"><span aria-hidden="true">🌼</span>花粉</button>
         </div>
       </div>
@@ -1262,6 +1266,7 @@
     <div class="alert-row">
       <button class="alert-pill" id="quakeAlert" type="button" hidden></button>
       <button class="alert-pill" id="tsunamiAlert" type="button" hidden></button>
+      <button class="alert-pill" id="typhoonAlert" type="button" hidden></button>
     </div>
 
     <!-- ウォーキング -->
@@ -1389,6 +1394,19 @@
         </div>
       </div>
 
+      <div class="more-section" id="more-typhoon" hidden>
+        <div class="banner" id="typhoonBanner">確認中…</div>
+        <div class="card">
+          <h2>発生中の台風・熱帯低気圧 (気象庁発表)</h2>
+          <div class="status" id="typhoonStatus">読み込み中…</div>
+          <div class="list" id="typhoonList"></div>
+        </div>
+        <div class="link-row">
+          <a class="button" href="https://typhoon.yahoo.co.jp/weather/jp/typhoon/" target="_blank" rel="noreferrer"><strong>Yahoo 台風情報</strong><span>詳しく見る ↗</span></a>
+          <a class="button" href="https://www.jma.go.jp/bosai/map.html#contents=typhoon" target="_blank" rel="noreferrer"><strong>気象庁 台風情報</strong><span>詳しく見る ↗</span></a>
+        </div>
+      </div>
+
       <div class="more-section" id="more-pollen" hidden>
         <div class="card">
           <h2>今日の花粉 (Weathernews ポールンロボ観測)</h2>
@@ -1479,9 +1497,10 @@
 
     const $ = (id) => document.getElementById(id);
     const FRESH_MS = 5 * 60 * 1000;
-    const cache = { walk: 0, weather: 0, quake: 0, tsunami: 0, pollen: 0, radar: 0, more: 0, about: 0 };
+    const cache = { walk: 0, weather: 0, quake: 0, tsunami: 0, typhoon: 0, pollen: 0, radar: 0, more: 0, about: 0 };
     let weatherSeq = 0;
     let pollenSeq = 0;
+    let typhoonSeq = 0;
 
     function loadSettings() {
       try {
@@ -1500,7 +1519,7 @@
         if (!["walk", "weather", "radar", "more", "about"].includes(merged.tab)) {
           merged.tab = defaults.tab;
         }
-        if (!["quake", "tsunami", "pollen"].includes(merged.moreTab)) {
+        if (!["quake", "tsunami", "typhoon", "pollen"].includes(merged.moreTab)) {
           merged.moreTab = defaults.moreTab;
         }
         return merged;
@@ -2244,7 +2263,9 @@
     }
 
     function updateMoreNavDot() {
-      $("navDotMore").hidden = $("quakeAlert").hidden && $("tsunamiAlert").hidden;
+      $("navDotMore").hidden = $("quakeAlert").hidden
+        && $("tsunamiAlert").hidden
+        && $("typhoonAlert").hidden;
     }
 
     async function loadQuakes() {
@@ -2356,6 +2377,113 @@
         status.className = "status error";
         status.textContent = "津波情報を取得できませんでした。↻ 更新で再試行してください。";
         setImportant("tsunami", { level: "error", text: "取得失敗" });
+      }
+    }
+
+    // ---------- 台風 ----------
+
+    // part は "title" のような文字列と { jp, en } の両方があるので揃えて扱う
+    function typhoonPartName(part) {
+      if (typeof part === "string") return part;
+      return (part && part.jp) || "";
+    }
+
+    function typhoonClass(category) {
+      if (/大型|非常に強い|猛烈/.test(category)) return "warn";
+      if (/台風/.test(category)) return "advisory";
+      return "info";
+    }
+
+    async function loadTyphoon() {
+      const seq = ++typhoonSeq;
+      const status = $("typhoonStatus");
+      const banner = $("typhoonBanner");
+      status.className = "status";
+      status.textContent = "読み込み中…";
+      try {
+        const listResponse = await fetch("https://www.jma.go.jp/bosai/typhoon/data/targetTc.json");
+        if (!listResponse.ok) throw new Error(`typhoon ${listResponse.status}`);
+        const targets = await listResponse.json();
+        if (seq !== typhoonSeq) return;
+
+        // 各熱帯低気圧の詳細をまとめて取得する (数個なので並列で問題ない)
+        const details = await Promise.all((targets || []).map(async (target) => {
+          try {
+            const response = await fetch(`https://www.jma.go.jp/bosai/typhoon/data/${encodeURIComponent(target.tropicalCyclone)}/specifications.json`);
+            if (!response.ok) return null;
+            return await response.json();
+          } catch {
+            return null;
+          }
+        }));
+        if (seq !== typhoonSeq) return;
+
+        const storms = details.map((parts) => {
+          if (!Array.isArray(parts)) return null;
+          const title = parts.find((p) => typhoonPartName(p.part) === "title");
+          const now = parts.find((p) => typhoonPartName(p.part) === "実況")
+            || parts.find((p) => p.advancedHours === 0);
+          if (!now) return null;
+          // 24時間先までの予報のうち、最も先のものを進路の目安として添える
+          const forecasts = parts.filter((p) => typeof p.advancedHours === "number" && p.advancedHours > 0);
+          const last = forecasts.length ? forecasts[forecasts.length - 1] : null;
+          return { title, now, last };
+        }).filter(Boolean);
+
+        const typhoons = storms.filter((s) => /台風/.test((s.now.category && s.now.category.jp) || ""));
+        const hasTyphoon = typhoons.length > 0;
+        const pill = $("typhoonAlert");
+        if (storms.length) {
+          banner.className = hasTyphoon ? "banner alert" : "banner";
+          banner.textContent = hasTyphoon
+            ? `⚠ 台風が発生しています (${typhoons.length}件)。進路と最新情報を確認してください。`
+            : `熱帯低気圧が${storms.length}件発生しています。台風に発達する可能性があります。`;
+        } else {
+          banner.className = "banner ok";
+          banner.textContent = "現在、発生中の台風・熱帯低気圧はありません。";
+        }
+        pill.hidden = !hasTyphoon;
+        if (hasTyphoon) pill.textContent = `🌀 台風 ${typhoons.length}件 発生中`;
+        updateMoreNavDot();
+
+        $("typhoonList").innerHTML = storms.map((storm) => {
+          const name = storm.title && storm.title.name && storm.title.name.jp;
+          const number = storm.title && storm.title.typhoonNumber;
+          const category = (storm.now.category && storm.now.category.jp) || "熱帯低気圧";
+          // 番号を名乗るのは台風のときだけ。熱帯低気圧は番号を持っていても
+          // (勢力が落ちた元台風でも) 「台風N号」とは呼ばないので付けない。
+          const isTyphoon = /台風/.test(category);
+          const heading = isTyphoon && /^\d+$/.test(number || "")
+            ? `${category}${Number(String(number).slice(2))}号${name ? ` (${name})` : ""}`
+            : `${category}${name ? ` (${name})` : ""}`;
+          const wind = storm.now.maximumWind && storm.now.maximumWind.sustained;
+          const gust = storm.now.maximumWind && storm.now.maximumWind.gust;
+          const facts = [
+            storm.now.pressure ? `中心気圧 ${escapeHtml(storm.now.pressure)}hPa` : "",
+            wind && wind["m/s"] && wind["m/s"] !== "0" ? `最大風速 ${escapeHtml(wind["m/s"])}m/s` : "",
+            gust && gust["m/s"] && gust["m/s"] !== "0" ? `最大瞬間 ${escapeHtml(gust["m/s"])}m/s` : "",
+            storm.now.course ? `${escapeHtml(storm.now.course)}へ${storm.now.speed && storm.now.speed["km/h"] ? ` ${escapeHtml(storm.now.speed["km/h"])}km/h` : ""}` : ""
+          ].filter(Boolean).join(" / ");
+          const forecast = storm.last && storm.last.location
+            ? `<span class="sub">${escapeHtml(String(storm.last.advancedHours))}時間後: ${escapeHtml(storm.last.location)}付近</span>`
+            : "";
+          return `<div class="list-item">` +
+            `<span class="when">${fmtDateTime(storm.now.validtime && storm.now.validtime.JST)}</span>` +
+            `<span class="what"><span class="name">${escapeHtml(heading)}</span>` +
+            `<span class="sub"> ${escapeHtml(storm.now.location || "")}</span><br>` +
+            `<span class="kind-tag ${typhoonClass(category)}">${escapeHtml(category)}</span>` +
+            `<span class="sub"> ${facts}</span>${forecast ? `<br>${forecast}` : ""}</span>` +
+            `</div>`;
+        }).join("") || '<div class="status">発生中の台風・熱帯低気圧はありません。</div>';
+
+        cache.typhoon = Date.now();
+        status.textContent = `${fmtDateTime(new Date().toISOString())} 更新`;
+      } catch {
+        if (seq !== typhoonSeq) return;
+        banner.className = "banner";
+        banner.textContent = "台風情報を確認できませんでした。";
+        status.className = "status error";
+        status.textContent = "台風情報を取得できませんでした。↻ 更新で再試行してください。";
       }
     }
 
@@ -2764,6 +2892,7 @@
       const moreTabDetails = {
         quake: { icon: "🌏", label: "防災" },
         tsunami: { icon: "🌊", label: "防災" },
+        typhoon: { icon: "🌀", label: "防災" },
         pollen: { icon: "🌼", label: "生活" }
       };
       const current = moreTabDetails[state.moreTab];
@@ -2786,6 +2915,7 @@
     function loadMoreTab(tab, force) {
       if (tab === "quake" && (force || Date.now() - cache.quake > FRESH_MS)) loadQuakes();
       if (tab === "tsunami" && (force || Date.now() - cache.tsunami > FRESH_MS)) loadTsunami();
+      if (tab === "typhoon" && (force || Date.now() - cache.typhoon > FRESH_MS)) loadTyphoon();
       if (tab === "pollen" && (force || Date.now() - cache.pollen > FRESH_MS)) loadPollen();
       cache.more = Date.now();
     }
@@ -2807,6 +2937,7 @@
         loadConsensus(),
         loadQuakes(),
         loadTsunami(),
+        loadTyphoon(),
         loadRadar(),
         loadPollen()
       ]);
@@ -2840,7 +2971,7 @@
     }
 
     function switchMoreTab(tab) {
-      if (!["quake", "tsunami", "pollen"].includes(tab)) return;
+      if (!["quake", "tsunami", "typhoon", "pollen"].includes(tab)) return;
       state.moreTab = tab;
       setMoreMenuOpen(false);
       if (state.tab !== "more") {
@@ -2875,6 +3006,7 @@
     });
     $("quakeAlert").addEventListener("click", () => switchMoreTab("quake"));
     $("tsunamiAlert").addEventListener("click", () => switchMoreTab("tsunami"));
+    $("typhoonAlert").addEventListener("click", () => switchMoreTab("typhoon"));
     $("safetyWarnings").addEventListener("click", () => switchTab("weather"));
     $("safetyQuake").addEventListener("click", () => switchMoreTab("quake"));
     $("safetyTsunami").addEventListener("click", () => switchMoreTab("tsunami"));
