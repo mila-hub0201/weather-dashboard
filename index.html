@@ -1000,6 +1000,57 @@
       z-index: 0;
     }
 
+    #typhoonMap {
+      height: clamp(320px, 52vh, 520px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      z-index: 0;
+    }
+
+    /* 台風が複数あるときの切り替えタブ */
+    .storm-picker {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .storm-chip {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .storm-chip[aria-pressed="true"] {
+      background: var(--accent-2);
+      border-color: var(--accent-2);
+      color: #fff;
+    }
+
+    .typhoon-marker {
+      font-size: 24px;
+      line-height: 1;
+      text-align: center;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45));
+    }
+
+    /* 予報の各地点に置く時刻ラベル */
+    .track-label {
+      background: rgba(255, 255, 255, .92);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 5px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
     .radar-legend {
       display: flex;
       align-items: center;
@@ -1396,6 +1447,19 @@
 
       <div class="more-section" id="more-typhoon" hidden>
         <div class="banner" id="typhoonBanner">確認中…</div>
+        <div class="card" id="typhoonMapCard" hidden>
+          <h2>進路予想</h2>
+          <div class="storm-picker" id="typhoonPicker"></div>
+          <div id="typhoonMap"></div>
+          <div class="radar-legend">
+            <span class="lg"><span aria-hidden="true">🌀</span> 現在の中心</span>
+            <span class="lg"><span aria-hidden="true" style="color:#8494a5">━</span> これまでの経路</span>
+            <span class="lg"><span aria-hidden="true" style="color:#d64545">┅</span> 予想進路</span>
+            <span class="lg"><span aria-hidden="true" style="color:#d64545">◯</span> 予報円 (中心が入る可能性の範囲)</span>
+            <span class="lg"><span aria-hidden="true" style="color:#e08b2a">◯</span> 強風域</span>
+          </div>
+          <div class="fineprint" id="typhoonMapNote"></div>
+        </div>
         <div class="card">
           <h2>発生中の台風・熱帯低気圧 (気象庁発表)</h2>
           <div class="status" id="typhoonStatus">読み込み中…</div>
@@ -2388,6 +2452,172 @@
       return (part && part.jp) || "";
     }
 
+    // 進路図。実況までの経路・予想進路・予報円・強風域をまとめて描く。
+    let typhoonMap = null;
+    let typhoonLayer = null;
+    let typhoonStorms = [];
+    let typhoonSelected = 0;
+
+    function stormHeading(storm) {
+      const name = storm.title && storm.title.name && storm.title.name.jp;
+      const number = storm.title && storm.title.typhoonNumber;
+      const category = (storm.now.category && storm.now.category.jp) || "熱帯低気圧";
+      const isTyphoon = /台風/.test(category);
+      return isTyphoon && /^\d+$/.test(number || "")
+        ? `${category}${Number(String(number).slice(2))}号${name ? ` (${name})` : ""}`
+        : `${category}${name ? ` (${name})` : ""}`;
+    }
+
+    function hourLabelJst(iso) {
+      if (!iso) return "";
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+      return new Intl.DateTimeFormat("ja-JP", {
+        month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit"
+      }).format(date);
+    }
+
+    function drawTyphoonTrack() {
+      const storm = typhoonStorms[typhoonSelected];
+      const card = $("typhoonMapCard");
+      if (!storm || !storm.track) {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+
+      if (!typhoonMap) {
+        // fitBounds 前に描画してもエラーにならないよう、初期表示位置を与えておく
+        typhoonMap = L.map("typhoonMap", { scrollWheelZoom: false }).setView([34, 138], 4);
+        L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+          attribution: "地図: 国土地理院", maxZoom: 18
+        }).addTo(typhoonMap);
+      }
+      if (typhoonLayer) typhoonLayer.remove();
+      typhoonLayer = L.layerGroup().addTo(typhoonMap);
+
+      const parts = storm.track;
+      const now = parts.find((p) => p.advancedHours === 0);
+      const forecasts = parts
+        .filter((p) => typeof p.advancedHours === "number" && p.advancedHours > 0 && p.center)
+        .sort((a, b) => a.advancedHours - b.advancedHours);
+      const bounds = [];
+
+      // これまでの経路 (熱帯低気圧だった期間も続けて描く)
+      const past = []
+        .concat((now && now.track && now.track.preTyphoon) || [])
+        .concat((now && now.track && now.track.typhoon) || []);
+      if (past.length > 1) {
+        L.polyline(past, { color: "#8494a5", weight: 3, opacity: .9 }).addTo(typhoonLayer);
+        // 経路は発生地点まで伸びて数千kmになることがある。全部を表示範囲に含めると
+        // 肝心の予報部分が潰れてしまうので、直近だけを範囲の計算に使う。
+        past.slice(-6).forEach((point) => bounds.push(point));
+      }
+
+      // 強風域
+      if (now && now.galeWarningArea && now.galeWarningArea.center && now.galeWarningArea.radius) {
+        L.circle(now.galeWarningArea.center, {
+          radius: now.galeWarningArea.radius,
+          color: "#e08b2a", weight: 1.5, fillColor: "#e08b2a", fillOpacity: .1
+        }).addTo(typhoonLayer);
+      }
+
+      // 予想進路と予報円 (先に円を描いて、線とマーカーを上に重ねる)
+      forecasts.forEach((point) => {
+        const radius = point.probabilityCircle && point.probabilityCircle.radius;
+        if (radius) {
+          L.circle(point.center, {
+            radius, color: "#d64545", weight: 1.5, dashArray: "4 4",
+            fillColor: "#d64545", fillOpacity: .07
+          }).addTo(typhoonLayer);
+          // 円がはみ出さないよう外周まで範囲に入れる。円の getBounds() は地図の
+          // 表示位置が決まっていないと使えないため、座標から直接計算する。
+          const circleBounds = L.latLng(point.center).toBounds(radius * 2);
+          bounds.push(circleBounds.getNorthEast(), circleBounds.getSouthWest());
+        }
+      });
+
+      const centerNow = now && now.center;
+      const route = (centerNow ? [centerNow] : []).concat(forecasts.map((p) => p.center));
+      if (route.length > 1) {
+        L.polyline(route, { color: "#d64545", weight: 3, dashArray: "7 6" }).addTo(typhoonLayer);
+      }
+      route.forEach((point) => bounds.push(point));
+
+      // 3時間刻みの予報はラベルが重なって読めないため、1つ飛ばしで置く (最後は必ず出す)。
+      // 省いた地点も、丸をタップ/ホバーすれば時刻が分かる。
+      const labelled = forecasts.filter((point, index) =>
+        index % 2 === 0 || index === forecasts.length - 1);
+
+      forecasts.forEach((point) => {
+        L.circleMarker(point.center, {
+          radius: 5, color: "#d64545", weight: 2, fillColor: "#fff", fillOpacity: 1
+        }).addTo(typhoonLayer)
+          .bindTooltip(`${point.advancedHours}時間後 ${hourLabelJst(point.validtime && point.validtime.JST)}`, {
+            direction: "top"
+          });
+      });
+
+      labelled.forEach((point, order) => {
+        // 進路が詰まっている区間でも読めるよう、隣り合うラベルは上下に振り分ける
+        const below = order % 2 === 0;
+        L.marker(point.center, {
+          icon: L.divIcon({
+            className: "", html: `<div class="track-label">${escapeHtml(String(point.advancedHours))}時間後</div>`,
+            iconSize: [0, 0], iconAnchor: [-8, below ? 22 : -4]
+          }),
+          interactive: false
+        }).addTo(typhoonLayer);
+      });
+
+      if (centerNow) {
+        L.marker(centerNow, {
+          icon: L.divIcon({ className: "", html: '<div class="typhoon-marker">🌀</div>', iconSize: [24, 24], iconAnchor: [12, 12] }),
+          zIndexOffset: 500
+        }).addTo(typhoonLayer)
+          .bindTooltip(`現在 ${escapeHtml(storm.now.location || "")}`, { direction: "top" });
+      }
+
+      // 自分の地域も一緒に見えるようにしておく
+      const home = [state.location.latitude, state.location.longitude];
+      L.circleMarker(home, {
+        radius: 6, color: "#1272b6", weight: 2, fillColor: "#1272b6", fillOpacity: .85
+      }).addTo(typhoonLayer).bindTooltip(escapeHtml(state.location.name || "現在の地域"), { direction: "top" });
+      bounds.push(home);
+
+      if (bounds.length) typhoonMap.fitBounds(L.latLngBounds(bounds).pad(0.15));
+      setTimeout(() => typhoonMap.invalidateSize(), 60);
+
+      const lastPoint = forecasts.length ? forecasts[forecasts.length - 1] : null;
+      $("typhoonMapNote").textContent = lastPoint
+        ? `${stormHeading(storm)} — ${lastPoint.advancedHours}時間後 (${hourLabelJst(lastPoint.validtime && lastPoint.validtime.JST)}) までの予報。予報円は台風の中心が入る可能性が70%の範囲です。`
+        : `${stormHeading(storm)} — 予報進路は発表されていません。`;
+    }
+
+    function renderTyphoonPicker() {
+      const picker = $("typhoonPicker");
+      picker.innerHTML = "";
+      // 1件だけなら選ぶ必要がないので出さない
+      if (typhoonStorms.length < 2) {
+        picker.hidden = true;
+        return;
+      }
+      picker.hidden = false;
+      typhoonStorms.forEach((storm, index) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "storm-chip";
+        chip.textContent = stormHeading(storm);
+        chip.setAttribute("aria-pressed", String(index === typhoonSelected));
+        chip.addEventListener("click", () => {
+          typhoonSelected = index;
+          renderTyphoonPicker();
+          drawTyphoonTrack();
+        });
+        picker.appendChild(chip);
+      });
+    }
+
     function typhoonClass(category) {
       if (/大型|非常に強い|猛烈/.test(category)) return "warn";
       if (/台風/.test(category)) return "advisory";
@@ -2406,28 +2636,33 @@
         const targets = await listResponse.json();
         if (seq !== typhoonSeq) return;
 
-        // 各熱帯低気圧の詳細をまとめて取得する (数個なので並列で問題ない)
+        // 各熱帯低気圧の諸元と進路をまとめて取得する (数個なので並列で問題ない)
         const details = await Promise.all((targets || []).map(async (target) => {
-          try {
-            const response = await fetch(`https://www.jma.go.jp/bosai/typhoon/data/${encodeURIComponent(target.tropicalCyclone)}/specifications.json`);
-            if (!response.ok) return null;
-            return await response.json();
-          } catch {
-            return null;
-          }
+          const base = `https://www.jma.go.jp/bosai/typhoon/data/${encodeURIComponent(target.tropicalCyclone)}/`;
+          const load = async (file) => {
+            try {
+              const response = await fetch(base + file);
+              if (!response.ok) return null;
+              return await response.json();
+            } catch {
+              return null;
+            }
+          };
+          const [specs, track] = await Promise.all([load("specifications.json"), load("forecast.json")]);
+          return { specs, track };
         }));
         if (seq !== typhoonSeq) return;
 
-        const storms = details.map((parts) => {
-          if (!Array.isArray(parts)) return null;
-          const title = parts.find((p) => typhoonPartName(p.part) === "title");
-          const now = parts.find((p) => typhoonPartName(p.part) === "実況")
-            || parts.find((p) => p.advancedHours === 0);
+        const storms = details.map(({ specs, track }) => {
+          if (!Array.isArray(specs)) return null;
+          const title = specs.find((p) => typhoonPartName(p.part) === "title");
+          const now = specs.find((p) => typhoonPartName(p.part) === "実況")
+            || specs.find((p) => p.advancedHours === 0);
           if (!now) return null;
           // 24時間先までの予報のうち、最も先のものを進路の目安として添える
-          const forecasts = parts.filter((p) => typeof p.advancedHours === "number" && p.advancedHours > 0);
+          const forecasts = specs.filter((p) => typeof p.advancedHours === "number" && p.advancedHours > 0);
           const last = forecasts.length ? forecasts[forecasts.length - 1] : null;
-          return { title, now, last };
+          return { title, now, last, specs, track: Array.isArray(track) ? track : null };
         }).filter(Boolean);
 
         const typhoons = storms.filter((s) => /台風/.test((s.now.category && s.now.category.jp) || ""));
@@ -2441,10 +2676,21 @@
         } else {
           banner.className = "banner ok";
           banner.textContent = "現在、発生中の台風・熱帯低気圧はありません。";
+          $("typhoonMapCard").hidden = true;
         }
         pill.hidden = !hasTyphoon;
         if (hasTyphoon) pill.textContent = `🌀 台風 ${typhoons.length}件 発生中`;
         updateMoreNavDot();
+
+        // 進路図は台風を優先して表示する (熱帯低気圧より関心が高いため)
+        typhoonStorms = storms.filter((s) => s.track);
+        typhoonStorms.sort((a, b) => {
+          const rank = (s) => (/台風/.test((s.now.category && s.now.category.jp) || "") ? 0 : 1);
+          return rank(a) - rank(b);
+        });
+        typhoonSelected = 0;
+        renderTyphoonPicker();
+        drawTyphoonTrack();
 
         $("typhoonList").innerHTML = storms.map((storm) => {
           const name = storm.title && storm.title.name && storm.title.name.jp;
@@ -2904,6 +3150,10 @@
       document.querySelectorAll(".more-section").forEach((section) => {
         section.hidden = section.id !== `more-${state.moreTab}`;
       });
+      // 非表示のまま作った地図はサイズが0になるので、表示に切り替わったら測り直す
+      if (state.moreTab === "typhoon" && typhoonMap) {
+        setTimeout(() => typhoonMap.invalidateSize(), 60);
+      }
     }
 
     function setMoreMenuOpen(open) {
