@@ -42,9 +42,11 @@ Open-Meteo has usage limits and separate requirements for commercial or high-vol
 This application uses Weathernews WxTech Open Data for pollen information.
 
 Source: Weathernews WxTech Open Data  
-Website: https://wxtech.weathernews.com/opendata/
+Website: https://wxtech.weathernews.com/products/data/services/opendata-pollen/
 
-Review the current Weathernews WxTech Open Data terms before public or commercial distribution.
+The published terms state that commercial use, or publishing derived results over the internet, requires contacting Weathernews first. Because this repository is deployed to GitHub Pages, the pollen feature is disabled when the app is served from a public URL: the tab is not shown and no request is made to Weathernews. It is enabled only for local use (`localhost`, `127.0.0.1`, or `file://`) and in the author's own Android app. See `POLLEN_ENABLED` in `index.html`.
+
+When publishing results derived from this data, indicate that the data was observed by Weathernews "ポールンロボ" pollen sensors. Review the current Weathernews WxTech Open Data terms before public or commercial distribution.
 
 ### External links
 

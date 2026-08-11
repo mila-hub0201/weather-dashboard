@@ -1501,7 +1501,7 @@
       <div class="card">
         <h2>このアプリについて</h2>
         <ul class="about-list">
-          <li>天気・雨雲・警報注意報・地震・津波・台風・花粉をまとめて確認する個人向けダッシュボードです。</li>
+          <li>天気・雨雲・警報注意報・地震・津波・台風・花粉 (公開版では非表示) をまとめて確認する個人向けダッシュボードです。</li>
           <li>Weathernews、Yahoo天気、tenki.jp、気象庁、国土地理院、Open-Meteo などの公式サービスではありません。</li>
           <li>アプリ本体は MIT License で配布できます。外部データや外部サービスには、それぞれ別の利用条件があります。</li>
         </ul>
@@ -1521,7 +1521,7 @@
           <li>気象庁: 警報・注意報、地震、津波、台風 (位置・強さ・進路予想)、高解像度降水ナウキャスト</li>
           <li>国土地理院: 地理院タイル、住所検索、逆ジオコーダ</li>
           <li>Open-Meteo: 予報・現在天気データ</li>
-          <li>Weathernews WxTech Open Data: 花粉観測データ</li>
+          <li>Weathernews WxTech Open Data: 花粉観測データ (ポールンロボ観測。提供条件によりインターネット公開版では非表示で、手元で開いた場合とアプリ版でのみ表示)</li>
           <li>Leaflet: 地図表示ライブラリ</li>
           <li>Weathernews / Yahoo天気 / tenki.jp: 関連情報への外部リンク</li>
         </ul>
@@ -1567,6 +1567,20 @@
     let pollenSeq = 0;
     let typhoonSeq = 0;
 
+    /**
+     * 花粉データ (ウェザーニュース) を表示してよいか。
+     *
+     * 提供条件に「インターネットを通じた成果物の公開をご検討の場合はお問い合わせください」
+     * とあるため、公開URLで開かれたときは表示しない。手元で開いた場合と、自分の
+     * Androidアプリ (WeatherWidget ブリッジがある) でのみ利用する。
+     * 他のデータ (気象庁・国土地理院・Open-Meteo) にこの制限はない。
+     */
+    const POLLEN_ENABLED = (() => {
+      if (typeof window.WeatherWidget !== "undefined") return true;
+      if (location.protocol === "file:") return true;
+      return ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
+    })();
+
     function loadSettings() {
       try {
         const saved = JSON.parse(localStorage.getItem(storageKey) || "{}");
@@ -1584,6 +1598,7 @@
         if (!["walk", "weather", "radar", "more", "about"].includes(merged.tab)) {
           merged.tab = defaults.tab;
         }
+        if (merged.moreTab === "pollen" && !POLLEN_ENABLED) merged.moreTab = defaults.moreTab;
         if (!["quake", "tsunami", "typhoon", "pollen"].includes(merged.moreTab)) {
           merged.moreTab = defaults.moreTab;
         }
@@ -1805,7 +1820,7 @@
         radarMarker.setLatLng([state.location.latitude, state.location.longitude]);
       }
       refreshImportant();
-      if (state.tab === "more" && state.moreTab === "pollen") loadPollen();
+      if (state.tab === "more" && state.moreTab === "pollen" && POLLEN_ENABLED) loadPollen();
       if (state.tab === "about") loadAbout();
     }
 
@@ -3167,7 +3182,7 @@
       if (tab === "quake" && (force || Date.now() - cache.quake > FRESH_MS)) loadQuakes();
       if (tab === "tsunami" && (force || Date.now() - cache.tsunami > FRESH_MS)) loadTsunami();
       if (tab === "typhoon" && (force || Date.now() - cache.typhoon > FRESH_MS)) loadTyphoon();
-      if (tab === "pollen" && (force || Date.now() - cache.pollen > FRESH_MS)) loadPollen();
+      if (tab === "pollen" && POLLEN_ENABLED && (force || Date.now() - cache.pollen > FRESH_MS)) loadPollen();
       cache.more = Date.now();
     }
 
@@ -3190,8 +3205,8 @@
         loadTsunami(),
         loadTyphoon(),
         loadRadar(),
-        loadPollen()
-      ]);
+        POLLEN_ENABLED ? loadPollen() : null
+      ].filter(Boolean));
       // タブ切り替え時に再取得されないよう、まとめ読み込み済みとして記録する
       cache.more = Date.now();
       cache.about = Date.now();
@@ -3223,6 +3238,7 @@
 
     function switchMoreTab(tab) {
       if (!["quake", "tsunami", "typhoon", "pollen"].includes(tab)) return;
+      if (tab === "pollen" && !POLLEN_ENABLED) return;
       state.moreTab = tab;
       setMoreMenuOpen(false);
       if (state.tab !== "more") {
@@ -3348,6 +3364,13 @@
     }
 
     // ---------- 起動 ----------
+
+    // 公開URLでは花粉を出さない (提供条件のため。詳しくは POLLEN_ENABLED を参照)
+    if (!POLLEN_ENABLED) {
+      document.querySelectorAll('[data-more-tab="pollen"]').forEach((button) => button.remove());
+      const pollenSection = $("more-pollen");
+      if (pollenSection) pollenSection.remove();
+    }
 
     document.querySelectorAll(".status").forEach((status) => {
       status.setAttribute("role", "status");
